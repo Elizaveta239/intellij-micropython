@@ -34,6 +34,7 @@ import com.intellij.openapi.project.guessModuleDir
 import com.intellij.openapi.project.rootManager
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ui.configuration.ProjectSettingsService
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtil
@@ -159,6 +160,11 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     fun uploadMultipleFiles(project: Project, currentModule: Module?, toUpload: List<VirtualFile>): Boolean {
       val filesToUpload = mutableListOf<Pair<String, VirtualFile>>()
       val fileSystemWidget = fileSystemWidget(project) ?: return false
+      //todo ask to connect
+      if(!fileSystemWidget.isConnected()) {
+        Messages.showErrorDialog(project, "Device is not connected", "No Device")
+        return false
+      }
       runWithModalProgressBlocking(project, "Upload files") {
       for (uploadFile in toUpload) {
         val roots = mutableSetOf<VirtualFile>()
@@ -194,6 +200,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
         }
       }
       //todo low priority create empty folders
+        //todo connect to the board
         reportSequentialProgress(filesToUpload.size) { reporter ->
           filesToUpload.forEach { (path, file) ->
             reporter.itemStep(path)

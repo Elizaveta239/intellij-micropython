@@ -6,13 +6,9 @@ import com.intellij.openapi.util.text.Strings
 import com.intellij.util.text.nullize
 import com.jediterm.core.util.TermSize
 import com.jediterm.terminal.TtyConnector
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.annotations.NonNls
 import java.io.Closeable
 import java.io.IOException
@@ -370,4 +366,5 @@ except OSError as e:
         client?.send("\u0004")
     }
 
+    fun isConnected(): Boolean = client?.isConnected == true
 }

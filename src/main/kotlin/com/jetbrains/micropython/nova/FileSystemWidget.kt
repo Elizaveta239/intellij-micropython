@@ -13,6 +13,7 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileTypes.FileTypeRegistry
+import com.intellij.openapi.progress.currentThreadCoroutineScope
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
@@ -33,6 +34,7 @@ import com.intellij.util.containers.TreeTraversal
 import com.intellij.util.ui.tree.TreeUtil
 import com.jediterm.terminal.TtyConnector
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
@@ -40,6 +42,7 @@ import java.io.IOException
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
+import kotlin.Throws
 
 private const val MPY_FS_SCAN = """
 import os
@@ -138,8 +141,10 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 State.DISCONNECTING,
                 State.DISCONNECTED,
                 State.CONNECTING -> {
-                    tree.model = newTreeModel()
-                    tree.isVisible = false
+                    currentThreadCoroutineScope().launch(Dispatchers.EDT) {
+                        tree.model = newTreeModel()
+                        tree.isVisible = false
+                    }
                 }
             }
         }
@@ -233,6 +238,8 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun disconnect() {
         comm.disconnect()
     }
+
+    fun isConnected():Boolean =comm.isConnected()
 
     @Throws(IOException::class)
     suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) =
