@@ -12,12 +12,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.annotations.NonNls
 import java.io.Closeable
 import java.io.IOException
 import java.io.PipedReader
 import java.io.PipedWriter
-import java.net.URI
 import java.nio.charset.StandardCharsets
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.properties.Delegates
@@ -26,13 +26,12 @@ import kotlin.properties.Delegates
 private const val BOUNDARY = "*********FSOP************"
 
 
-internal const val TIMEOUT = 2000
+internal const val TIMEOUT = 2000L
 internal const val LONG_TIMEOUT = 20000L
 internal const val SHORT_DELAY = 20L
 
 data class SingleExecResponse(
-    val stdout: String,
-    val stderr: String
+    val stdout: String, val stderr: String
 )
 
 typealias ExecResponse = List<SingleExecResponse>
@@ -78,7 +77,7 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
 
     private val inPipe = PipedReader(outPipe, 1000)
 
-    internal var connectionParameters: ConnectionParameters = ConnectionParameters("http://192.168.4.1:8266","")
+    internal var connectionParameters: ConnectionParameters = ConnectionParameters("http://192.168.4.1:8266", "")
 
     val ttyConnector: TtyConnector = WebSocketTtyConnector()
 
@@ -96,10 +95,10 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
             if (slashIdx > 0) {
                 val folderName = fullName.substring(0, slashIdx)
                 commands.add(
-                    "import errno\n" +
-                            "try: os.mkdir('$folderName'); \n" +
-                            "except OSError as e:\n" +
-                            "\tif e.errno != errno.EEXIST: raise "
+"""import os, errno
+try: os.mkdir('$folderName');
+except OSError as e:
+    if e.errno != errno.EEXIST: raise """
                 )
             }
         }
@@ -147,47 +146,60 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
     @Throws(IOException::class)
     private suspend fun doBlindExecute(vararg commands: String): ExecResponse {
         state = State.TTY_DETACHED
-        val result = mutableListOf<SingleExecResponse>()
-        try {
-
-            client?.send("\u0003")
-            client?.send("\u0003")
-            client?.send("\u0003")
-            client?.send("\u0001")
-            while (!offTtyBuffer.endsWith("\n>")) {
-                delay(SHORT_DELAY)
-            }
-            offTtyBuffer.clear()
-            for (command in commands) {
-                try {
-                    withTimeout(LONG_TIMEOUT) {
-                        command.lines().forEachIndexed { index, s ->
-                            if (index > 0) {
-                                delay(SHORT_DELAY)
-                            }
-                            client?.send("$s\n")
-                        }
-                        client?.send("\u0004")
-                        while (!(offTtyBuffer.startsWith("OK") && offTtyBuffer.endsWith("\u0004>") && offTtyBuffer.count { it == '\u0004' } == 2)) {
+        return withTimeout(LONG_TIMEOUT) {
+            try {
+                do {
+                    var promptNotReady = true
+                    client?.send("\u0003")
+                    client?.send("\u0003")
+                    client?.send("\u0003")
+                    client?.send("\u0001")
+                    withTimeoutOrNull(TIMEOUT) {
+                        while (!offTtyBuffer.endsWith("\n>")) {
                             delay(SHORT_DELAY)
                         }
-                        val eotPos = offTtyBuffer.indexOf('\u0004')
-                        val stdout = offTtyBuffer.substring(2, eotPos).trim()
-                        val stderr = offTtyBuffer.substring(eotPos + 1, offTtyBuffer.length - 2).trim()
-                        result.add(SingleExecResponse(stdout, stderr))
-                        offTtyBuffer.clear()
+                        promptNotReady = false
                     }
-                } catch (e: TimeoutCancellationException) {
-                    throw IOException("Timeout during command execution:$command", e)
+                } while (promptNotReady)
+                offTtyBuffer.clear()
+                val result = mutableListOf<SingleExecResponse>()
+                for (command in commands) {
+                    try {
+                        withTimeout(LONG_TIMEOUT) {
+                            command.lines().forEachIndexed { index, s ->
+                                if (index > 0) {
+                                    delay(SHORT_DELAY)
+                                }
+                                client?.send("$s\n")
+                            }
+                            client?.send("\u0004")
+                            while (!(offTtyBuffer.startsWith("OK") && offTtyBuffer.endsWith("\u0004>") && offTtyBuffer.count { it == '\u0004' } == 2)) {
+                                delay(SHORT_DELAY)
+                            }
+                            val eotPos = offTtyBuffer.indexOf('\u0004')
+                            val stdout = offTtyBuffer.substring(2, eotPos).trim()
+                            val stderr = offTtyBuffer.substring(eotPos + 1, offTtyBuffer.length - 2).trim()
+                            result.add(SingleExecResponse(stdout, stderr))
+                            offTtyBuffer.clear()
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        throw IOException("Timeout during command execution:$command", e)
+                    }
+                }
+                return@withTimeout result
+            } catch (e: Throwable) {
+                state = State.DISCONNECTED
+                client?.close()
+                client = null
+                throw e
+            } finally {
+                client?.send("\u0002")
+                offTtyBuffer.clear()
+                if (state == State.TTY_DETACHED) {
+                    state = State.CONNECTED
                 }
             }
-            return result
-        } finally {
-            client?.send("\u0002")
-            offTtyBuffer.clear()
-            if (state == State.TTY_DETACHED) {
-                state = State.CONNECTED
-            }
+
         }
     }
 
@@ -302,13 +314,13 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
     }
 
     protected open fun createClient(): Client {
-        return if(connectionParameters.uart) SerialClient(this) else MpyWebSocketClient(this)
+        return if (connectionParameters.uart) SerialClient(this) else MpyWebSocketClient(this)
     }
 
     @Throws(IOException::class)
     suspend fun connect() {
         val name = with(connectionParameters) {
-            if(uart) portName else url
+            if (uart) portName else url
         }
         state = State.CONNECTING
         offTtyBuffer.clear()
@@ -350,6 +362,12 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
                 }
             }
         }
+    }
+
+    fun reset() {
+        client?.send("\u0003")
+        client?.send("\u0003")
+        client?.send("\u0004")
     }
 
 }

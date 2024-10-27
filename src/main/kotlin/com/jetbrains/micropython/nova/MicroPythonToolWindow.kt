@@ -18,6 +18,7 @@ import org.jetbrains.plugins.terminal.JBTerminalSystemSettingsProvider
 import javax.swing.JComponent
 
 internal const val NOTIFICATION_GROUP = "Micropython"
+internal const val TOOL_WINDOW_ID = "com.jetbrains.micropython.nova.MicroPythonToolWindow"
 
 class MicroPythonToolWindow : ToolWindowFactory, DumbAware {
 

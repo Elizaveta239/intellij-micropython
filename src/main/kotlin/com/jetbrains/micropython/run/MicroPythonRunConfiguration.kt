@@ -59,28 +59,26 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
   var path: String = ""
   var runReplOnSuccess: Boolean = false
+  var resetOnSuccess: Boolean = true
+
   override fun getValidModules() =
           allModules.filter { it.microPythonFacet != null }.toMutableList()
 
   override fun getConfigurationEditor() = MicroPythonRunConfigurationEditor(this)
 
 
-  //todo upload folder or project
   override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
     val toUpload = listOf(VfsUtil.findFile(Path.of(path), true) ?: return null)
     val currentModule = environment.dataContext?.getData(LangDataKeys.MODULE)
 
-    return if (uploadMultipleFiles(project, currentModule, toUpload)) EmptyRunProfileState.INSTANCE else null
-    //todo optionally open repl
-//    ComponentManagerImpl
-//    if (runReplOnSuccess && state != null) {
-//      return RunStateWrapper(state) {
-//        ApplicationManager.getApplication().invokeLater {
-//          project.service<MicroPythonReplManager>().startOrRestartRepl(false)
-//          ToolWindowManager.getInstance(project).getToolWindow("MicroPython")?.show()
-//        }
-//      }
-//    }
+    if (uploadMultipleFiles(project, currentModule, toUpload)) {
+      val fileSystemWidget = fileSystemWidget(project)
+      if(resetOnSuccess)fileSystemWidget?.reset()
+      if(runReplOnSuccess) fileSystemWidget?.activateRepl()
+      return EmptyRunProfileState.INSTANCE
+    } else {
+      return null
+    }
   }
 
 
@@ -122,7 +120,8 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
   override fun writeExternal(element: Element) {
     super.writeExternal(element)
     element.setAttribute("path", path)
-    element.setAttribute("runReplOnSuccess", if (runReplOnSuccess) "yes" else "no")
+    element.setAttribute("run-repl-on-success", if (runReplOnSuccess) "yes" else "no")
+    element.setAttribute("reset-on-success", if (resetOnSuccess) "yes" else "no")
   }
 
   override fun readExternal(element: Element) {
@@ -131,8 +130,11 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     element.getAttributeValue("path")?.let {
       path = it
     }
-    element.getAttributeValue("runReplOnSuccess")?.let {
+    element.getAttributeValue("run-repl-on-success")?.let {
       runReplOnSuccess = it == "yes"
+    }
+    element.getAttributeValue("reset-on-success")?.let {
+      resetOnSuccess = it == "yes"
     }
   }
 
@@ -185,7 +187,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
           ) {
             getClosestRoot(file, roots, module)?.apply {
               val shortPath = VfsUtil.getRelativePath(file, this)
-              if (shortPath != null) filesToUpload.add(shortPath to file)//todo optimize
+              if (shortPath != null) filesToUpload.add(shortPath to file)//todo low priority optimize
             }
           }
           true

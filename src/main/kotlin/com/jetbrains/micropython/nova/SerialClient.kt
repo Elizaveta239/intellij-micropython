@@ -1,6 +1,5 @@
 package com.jetbrains.micropython.nova
 
-import com.intellij.openapi.diagnostic.thisLogger
 import jssc.SerialPort
 import jssc.SerialPort.FLOWCONTROL_NONE
 import jssc.SerialPortEvent

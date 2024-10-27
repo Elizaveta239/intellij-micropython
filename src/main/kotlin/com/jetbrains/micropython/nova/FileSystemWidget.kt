@@ -5,14 +5,18 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionPlaces.TOOLWINDOW_CONTENT
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.PopupHandler
@@ -24,6 +28,7 @@ import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.EditSourceOnDoubleClickHandler
 import com.intellij.util.ExceptionUtil
 import com.intellij.util.asSafely
+import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.containers.TreeTraversal
 import com.intellij.util.ui.tree.TreeUtil
 import com.jediterm.terminal.TtyConnector
@@ -236,10 +241,18 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     @Throws(IOException::class)
     suspend fun instantRun(code: @NonNls String) {
         withContext(Dispatchers.EDT) {
-            terminalContent?.apply { manager?.setSelectedContent(this) }
+            activateRepl()
         }
         comm.instantRun(code)
     }
+
+    @RequiresEdt
+    fun activateRepl(): Content? = terminalContent?.apply {
+        project.service<ToolWindowManager>().getToolWindow(TOOL_WINDOW_ID)?.activate(null, true, true)
+        manager?.setSelectedContent(this)
+    }
+
+    fun reset() = comm.reset()
 
     @Throws(IOException::class)
     suspend fun blindExecute(vararg commands: String): ExecResponse = comm.blindExecute(*commands)

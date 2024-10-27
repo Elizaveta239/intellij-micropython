@@ -35,12 +35,12 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import javax.swing.Icon
-import kotlin.Throws
 import kotlin.coroutines.cancellation.CancellationException
+
 
 fun fileSystemWidget(project: Project?): FileSystemWidget? {
     return ToolWindowManager.getInstance(project ?: return null)
-        .getToolWindow("com.jetbrains.micropython.nova.MicroPythonToolWindow")
+        .getToolWindow(TOOL_WINDOW_ID)
         ?.contentManager
         ?.contents
         ?.firstNotNullOfOrNull { it.component.asSafely<FileSystemWidget>() }

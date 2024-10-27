@@ -27,7 +27,8 @@ import javax.swing.JComponent
 
 class MicroPythonRunConfigurationEditor(config: MicroPythonRunConfiguration) : SettingsEditor<MicroPythonRunConfiguration>() {
   private val pathField = TextFieldWithBrowseButton()
-  private val runReplOnSuccess = CheckBox("Open MicroPython REPL on success", selected = true)
+    private val resetOnSuccess = CheckBox("Reset on success", selected = true)
+    private val runReplOnSuccess = CheckBox("Open MicroPython REPL on success", selected = true)
 
   init {
     val descriptor = FileChooserDescriptor(true, true, false, false, false, false)
@@ -43,16 +44,19 @@ class MicroPythonRunConfigurationEditor(config: MicroPythonRunConfiguration) : S
   override fun createEditor(): JComponent =
       FormBuilder.createFormBuilder()
           .addLabeledComponent("Path:", pathField)
+          .addComponent(resetOnSuccess)
           .addComponent(runReplOnSuccess)
           .panel
 
   override fun applyEditorTo(s: MicroPythonRunConfiguration) {
     s.path = pathField.text
     s.runReplOnSuccess = runReplOnSuccess.isSelected
+    s.resetOnSuccess = resetOnSuccess.isSelected
   }
 
   override fun resetEditorFrom(s: MicroPythonRunConfiguration) {
     pathField.text = s.path
     runReplOnSuccess.isSelected = s.runReplOnSuccess
+    resetOnSuccess.isSelected = s.resetOnSuccess
   }
 }
