@@ -2,6 +2,7 @@ package com.jetbrains.micropython.vfs
 
 import com.intellij.openapi.vfs.DeprecatedVirtualFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.util.asSafely
 import org.jetbrains.annotations.NonNls
 
 class MpyFileSystem : DeprecatedVirtualFileSystem() {
@@ -9,8 +10,14 @@ class MpyFileSystem : DeprecatedVirtualFileSystem() {
     private val root: MpyDir = MpyDir(this, null, "")
 
     override fun findFileByPath(path: @NonNls String): VirtualFile? {
-        var foundFile = root
-        path.split('/').forEach { t ->  }
+        var foundFile: MpyFileNode? = root
+        for (pathPart in  path.split('/')) {
+            foundFile = foundFile?.children?.firstOrNull { file -> pathPart == file.name }?.asSafely<MpyFileNode>()
+            if (foundFile == null) {
+                break
+            }
+        }
+        return foundFile
     }
 
     override fun refresh(asynchronous: Boolean) {
