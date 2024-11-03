@@ -43,6 +43,7 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
 private const val MPY_FS_SCAN = """
+
 import os
 class ___FSScan(object):
 
@@ -54,7 +55,11 @@ class ___FSScan(object):
 
 ___FSScan().fld("/")
 del ___FSScan
-gc.collect()
+try:
+    import gc
+    gc.collect()
+except Exception:
+        pass
   
 """
 
