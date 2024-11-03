@@ -52,6 +52,7 @@
                      enabledByDefault="true"
                      implementationClass="com.jetbrains.micropython.inspections.MicroPythonRequirementsInspection"/>
     <notificationGroup displayType="BALLOON" id="Micropython" />
+      <treeStructureProvider implementation="com.jetbrains.micropython.vfs.VfsTreeStructureProvider"/>
   </extensions>
 
   <extensions defaultExtensionNs="com.jetbrains.micropython">

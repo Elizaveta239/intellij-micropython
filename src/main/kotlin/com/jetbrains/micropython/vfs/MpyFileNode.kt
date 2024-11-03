@@ -34,4 +34,5 @@ abstract class MpyFileNode(
     override fun getPath(): @NonNls String {
         return parent?.path?.let { "$it/$name" } ?: name
     }
+
 }
