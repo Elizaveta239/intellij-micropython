@@ -5,11 +5,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
-import java.net.URI
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.stream.IntStream.range
 
-//@Disabled("Works only id a real board is at COM28")
+@Disabled("Works only id a real board is at COM28")
 class RealSerialConnect {
 
     private val serialParams = ConnectionParameters("COM28")
