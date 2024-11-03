@@ -21,7 +21,9 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.modules
+import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.text.StringUtilRt
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
@@ -47,39 +49,16 @@ fun fileSystemWidget(project: Project?): FileSystemWidget? {
         ?.firstNotNullOfOrNull { it.component.asSafely<FileSystemWidget>() }
 }
 
-abstract class ReplAction(text: String, icon: Icon? = null) : DumbAwareAction(text, "", icon) {
+abstract class ReplAction(text: String, private val connectionRequired: Boolean) : DumbAwareAction(text) {
 
-    abstract val actionDescription: String
+    abstract val actionDescription: @NlsContexts.DialogMessage String
 
     @Throws(IOException::class, TimeoutCancellationException::class, CancellationException::class)
-    abstract suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget)
+    abstract suspend fun performAction(fileSystemWidget: FileSystemWidget)
 
     final override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val fileSystemWidget = fileSystemWidget(project) ?: return
-        runWithModalProgressBlocking(project, "Board data exchange...") {
-            var error: String? = null
-            try {
-                performAction(e, fileSystemWidget)
-            } catch (e: TimeoutCancellationException) {
-                error = "$actionDescription timed out"
-                thisLogger().info(error, e)
-            } catch (e: CancellationException) {
-                error = "$actionDescription cancelled"
-                thisLogger().info(error, e)
-            } catch (e: IOException) {
-                error = "$actionDescription I/O error - ${e.localizedMessage ?: e.message ?: "No message"}"
-                thisLogger().info(error, e)
-            } catch (e: Exception) {
-                error = e.localizedMessage ?: e.message
-                error = if (error.isNullOrBlank()) "$actionDescription error - ${e::class.simpleName}"
-                else "$actionDescription error - ${e::class.simpleName}: $error"
-                thisLogger().error(error, e)
-            }
-            if (!error.isNullOrBlank()) {
-                Notifications.Bus.notify(Notification(NOTIFICATION_GROUP, error, NotificationType.ERROR), project)
-            }
-        }
+        performReplAction(project, connectionRequired, actionDescription, this::performAction)
     }
 
 
@@ -92,7 +71,49 @@ abstract class ReplAction(text: String, icon: Icon? = null) : DumbAwareAction(te
 
 }
 
-class Refresh : ReplAction("Refresh", AllIcons.Actions.Refresh) {
+fun <T> performReplAction(
+    project: Project,
+    connectionRequired: Boolean,
+    @NlsContexts.DialogMessage description: String,
+    action: suspend (FileSystemWidget) -> T
+): T? {
+    val fileSystemWidget = fileSystemWidget(project) ?: return null
+    if (connectionRequired && fileSystemWidget.state != State.CONNECTED) {
+        if (!MessageDialogBuilder.yesNo("Device is not connected", "Connect now?").ask(project)) {
+            return null
+        }
+    }
+    var result: T? = null
+    runWithModalProgressBlocking(project, "Board data exchange...") {
+        var error: String? = null
+        try {
+            if (connectionRequired) {
+                doConnect(fileSystemWidget)
+            }
+            result = action(fileSystemWidget)
+        } catch (e: TimeoutCancellationException) {
+            error = "$description timed out"
+            thisLogger().info(error, e)
+        } catch (e: CancellationException) {
+            error = "$description cancelled"
+            thisLogger().info(error, e)
+        } catch (e: IOException) {
+            error = "$description I/O error - ${e.localizedMessage ?: e.message ?: "No message"}"
+            thisLogger().info(error, e)
+        } catch (e: Exception) {
+            error = e.localizedMessage ?: e.message
+            error = if (error.isNullOrBlank()) "$description error - ${e::class.simpleName}"
+            else "$description error - ${e::class.simpleName}: $error"
+            thisLogger().error(error, e)
+        }
+        if (!error.isNullOrBlank()) {
+            Notifications.Bus.notify(Notification(NOTIFICATION_GROUP, error, NotificationType.ERROR), project)
+        }
+    }
+    return result
+}
+
+class Refresh : ReplAction("Refresh", false) {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
@@ -100,16 +121,16 @@ class Refresh : ReplAction("Refresh", AllIcons.Actions.Refresh) {
 
     override fun update(e: AnActionEvent) = enableIfConnected(e)
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) = fileSystemWidget.refresh()
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) = fileSystemWidget.refresh()
 }
 
-class Disconnect(text: String = "Disconnect") : ReplAction(text), Toggleable {
+class Disconnect(text: String = "Disconnect") : ReplAction(text, false), Toggleable {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override val actionDescription: String = "Disconnect"
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) = fileSystemWidget.disconnect()
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) = fileSystemWidget.disconnect()
 
     override fun update(e: AnActionEvent) {
         if (fileSystemWidget(e)?.state != State.CONNECTED) {
@@ -120,62 +141,14 @@ class Disconnect(text: String = "Disconnect") : ReplAction(text), Toggleable {
     }
 }
 
-class Connect(text: String = "Connect") : ReplAction(text) {
+class Connect(text: String = "Connect") : ReplAction(text, false) {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override val actionDescription: String = "Connect"
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) {
-        if (fileSystemWidget.state == State.CONNECTED) return
-        val facet = fileSystemWidget.project.modules.firstNotNullOfOrNull { it.microPythonFacet } ?: return
-        var msg: String? = null
-        val connectionParameters: ConnectionParameters?
-        if (facet.configuration.uart) {
-            val portName = facet.configuration.portName
-            if (portName.isBlank()) {
-                msg = "Port is not selected"
-                connectionParameters = null
-            } else {
-                connectionParameters = ConnectionParameters(portName)
-            }
-
-        } else {
-            val url = facet.configuration.webReplUrl
-            val password = fileSystemWidget.project.service<ConnectCredentials>().retrievePassword(url)
-            msg = messageForBrokenUrl(url)
-            if (password.isBlank()) {
-                msg = "Empty password"
-                connectionParameters = null
-            } else {
-                connectionParameters = ConnectionParameters(url, password)
-            }
-
-        }
-        if (msg != null) {
-            withContext(Dispatchers.EDT) {
-                val result = Messages.showIdeaMessageDialog(
-                    fileSystemWidget.project,
-                    msg,
-                    "Cannot Connect",
-                    arrayOf("OK", "Settings..."),
-                    1,
-                    AllIcons.General.ErrorDialog,
-                    null
-                )
-                if (result == 1) {
-                    ShowSettingsUtil.getInstance()
-                        .showSettingsDialog(fileSystemWidget.project, MicroPythonProjectConfigurable::class.java)
-                }
-            }
-        } else {
-            if (connectionParameters != null) {
-                fileSystemWidget.setConnectionParams(connectionParameters)
-                fileSystemWidget.connect()
-                fileSystemWidget.refresh()
-                ActivityTracker.getInstance().inc()
-            }
-        }
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
+        doConnect(fileSystemWidget)
     }
 
     override fun update(e: AnActionEvent) {
@@ -186,12 +159,64 @@ class Connect(text: String = "Connect") : ReplAction(text) {
     }
 }
 
-class DeleteFiles : ReplAction("Delete Item(s)", AllIcons.Actions.GC) {
+suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
+    if (fileSystemWidget.state == State.CONNECTED) return
+    val facet = fileSystemWidget.project.modules.firstNotNullOfOrNull { it.microPythonFacet } ?: return
+    var msg: String? = null
+    val connectionParameters: ConnectionParameters?
+    if (facet.configuration.uart) {
+        val portName = facet.configuration.portName
+        if (portName.isBlank()) {
+            msg = "Port is not selected"
+            connectionParameters = null
+        } else {
+            connectionParameters = ConnectionParameters(portName)
+        }
+
+    } else {
+        val url = facet.configuration.webReplUrl
+        val password = fileSystemWidget.project.service<ConnectCredentials>().retrievePassword(url)
+        msg = messageForBrokenUrl(url)
+        if (password.isBlank()) {
+            msg = "Empty password"
+            connectionParameters = null
+        } else {
+            connectionParameters = ConnectionParameters(url, password)
+        }
+
+    }
+    if (msg != null) {
+        withContext(Dispatchers.EDT) {
+            val result = Messages.showIdeaMessageDialog(
+                fileSystemWidget.project,
+                msg,
+                "Cannot Connect",
+                arrayOf("OK", "Settings..."),
+                1,
+                AllIcons.General.ErrorDialog,
+                null
+            )
+            if (result == 1) {
+                ShowSettingsUtil.getInstance()
+                    .showSettingsDialog(fileSystemWidget.project, MicroPythonProjectConfigurable::class.java)
+            }
+        }
+    } else {
+        if (connectionParameters != null) {
+            fileSystemWidget.setConnectionParams(connectionParameters)
+            fileSystemWidget.connect()
+            fileSystemWidget.refresh()
+            ActivityTracker.getInstance().inc()
+        }
+    }
+}
+
+class DeleteFiles : ReplAction("Delete Item(s)", true) {
     override val actionDescription: String = "Delete"
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) {
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
         try {
             fileSystemWidget.deleteCurrent()
         } finally {
@@ -209,19 +234,15 @@ class DeleteFiles : ReplAction("Delete Item(s)", AllIcons.Actions.GC) {
     }
 }
 
-class InstantRun : ReplAction("Instant Run", AllIcons.Actions.Rerun) {
+class InstantRun : ReplAction("Instant Run", true) {
     override val actionDescription: String = "Run code"
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
-        if (fileSystemWidget(e)?.state != State.CONNECTED) {
-            e.presentation.isEnabled = false
-            return
-        }
         e.presentation.isEnabled = e.project?.let { FileEditorManager.getInstance(it).selectedEditor } != null
     }
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) {
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
         val code = withContext(Dispatchers.EDT) {
             FileEditorManager.getInstance(fileSystemWidget.project).selectedEditor.asSafely<TextEditor>()?.editor?.document?.text
         }
@@ -231,7 +252,7 @@ class InstantRun : ReplAction("Instant Run", AllIcons.Actions.Rerun) {
     }
 }
 
-class OpenMpyFile : ReplAction("Open file", AllIcons.Actions.MenuOpen) {
+class OpenMpyFile : ReplAction("Open file", true) {
 
     override val actionDescription: String = "Open file"
 
@@ -245,7 +266,7 @@ class OpenMpyFile : ReplAction("Open file", AllIcons.Actions.MenuOpen) {
         e.presentation.isEnabledAndVisible = fileSystemWidget(e)?.selectedFile() is FileNode
     }
 
-    override suspend fun performAction(e: AnActionEvent, fileSystemWidget: FileSystemWidget) {
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
         fun fileReadCommand(name: String) = """
 with open('$name','rb') as f:
     while 1:
@@ -282,17 +303,11 @@ open class UploadFile(text: String = "Upload File(s)", icon: Icon = AllIcons.Act
     override fun update(e: AnActionEvent) {
         val project = e.project
         val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        var visible = false
         var enabled = false
-        if (project != null && file != null) {
-            val module = ModuleUtil.findModuleForFile(file, project)
-            if (module?.microPythonFacet != null && file.isInLocalFileSystem) {
-                visible = true
-                enabled = fileSystemWidget(project)?.state == State.CONNECTED
-            }
+        if (project != null && file?.isInLocalFileSystem == true) {
+            enabled = ModuleUtil.findModuleForFile(file, project)?.microPythonFacet != null
         }
-        e.presentation.isVisible = visible
-        e.presentation.isEnabled = enabled
+        e.presentation.isEnabledAndVisible = enabled
     }
 
     override fun actionPerformed(e: AnActionEvent) {

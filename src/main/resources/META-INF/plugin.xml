@@ -73,12 +73,12 @@
     <group id="micropython.repl.FSToolbar">
       <action id="micropython.repl.Disconnect" class="com.jetbrains.micropython.nova.Disconnect" icon="/icons/connectPassive.svg"/>
       <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect" icon="/icons/connectActive.svg"/>
-      <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh"/>
-      <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles" use-shortcut-of="$Delete"/>
+      <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh" icon="AllIcons.Actions.Refresh"/>
+      <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles" use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
       <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction"/>
     </group>
     <group id="micropython.repl.FSContextMenu">
-      <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile"/>
+      <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile" icon="AllIcons.Actions.MenuOpen"/>
       <reference ref="micropython.repl.Refresh"/>
       <separator/>
       <reference ref="micropython.repl.Delete"/>
@@ -95,7 +95,7 @@
       <reference ref="micropython.repl.Refresh"/>
       <reference ref="micropython.repl.ConnectionParameters"/>
     </group>
-    <action id="micropython.repl.InstantRun" class="com.jetbrains.micropython.nova.InstantRun" text="Instant Run">
+    <action id="micropython.repl.InstantRun" class="com.jetbrains.micropython.nova.InstantRun" text="Instant Run" icon="AllIcons.Actions.Rerun">
       <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="ExecuteInPyConsoleAction" />
     </action>
   </actions>

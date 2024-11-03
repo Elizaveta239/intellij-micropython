@@ -34,18 +34,17 @@ import com.intellij.openapi.project.guessModuleDir
 import com.intellij.openapi.project.rootManager
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ui.configuration.ProjectSettingsService
-import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.isFile
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.platform.util.progress.reportSequentialProgress
 import com.intellij.project.stateStore
 import com.intellij.util.PathUtil
 import com.intellij.util.PlatformUtils
 import com.jetbrains.micropython.nova.fileSystemWidget
+import com.jetbrains.micropython.nova.performReplAction
 import com.jetbrains.micropython.settings.MicroPythonProjectConfigurable
 import com.jetbrains.micropython.settings.microPythonFacet
 import com.jetbrains.python.sdk.PythonSdkUtil
@@ -158,49 +157,41 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     }
 
     fun uploadMultipleFiles(project: Project, currentModule: Module?, toUpload: List<VirtualFile>): Boolean {
-      val filesToUpload = mutableListOf<Pair<String, VirtualFile>>()
-      val fileSystemWidget = fileSystemWidget(project) ?: return false
-      //todo ask to connect
-      if(!fileSystemWidget.isConnected()) {
-        Messages.showErrorDialog(project, "Device is not connected", "No Device")
-        return false
-      }
-      runWithModalProgressBlocking(project, "Upload files") {
-      for (uploadFile in toUpload) {
-        val roots = mutableSetOf<VirtualFile>()
-        val module =
-          currentModule ?: ModuleUtil.findModuleForFile(uploadFile, project) ?: continue
-        val rootManager = module.rootManager
-        roots.addAll(rootManager.sourceRoots)
-        if (roots.isEmpty()) {
-          roots.addAll(rootManager.contentRoots)
-        }
-
-        val pythonPath = PythonSdkUtil.findPythonSdk(module)?.homeDirectory
-        //    val devicePath = facet.getOrDetectDevicePathSynchronously() ?: return null
-        val ideaDir = project.stateStore.directoryStorePath?.let { VfsUtil.findFile(it, false) }
-        val excludeRoots = listOfNotNull(
-          pythonPath,
-          ideaDir,
-          *ModuleRootManager.getInstance(module).excludeRoots
-        )
-
-
-        VfsUtil.processFileRecursivelyWithoutIgnored(uploadFile) { file ->
-          if (
-            file.isFile && file.isValid &&
-            excludeRoots.none { VfsUtil.isAncestor(it, file, false) }
-          ) {
-            getClosestRoot(file, roots, module)?.apply {
-              val shortPath = VfsUtil.getRelativePath(file, this)
-              if (shortPath != null) filesToUpload.add(shortPath to file)//todo low priority optimize
-            }
+      performReplAction(project, true, "Upload files") {fileSystemWidget ->
+        val filesToUpload = mutableListOf<Pair<String, VirtualFile>>()
+        for (uploadFile in toUpload) {
+          val roots = mutableSetOf<VirtualFile>()
+          val module =
+            currentModule ?: ModuleUtil.findModuleForFile(uploadFile, project) ?: continue
+          val rootManager = module.rootManager
+          roots.addAll(rootManager.sourceRoots)
+          if (roots.isEmpty()) {
+            roots.addAll(rootManager.contentRoots)
           }
-          true
+
+          val pythonPath = PythonSdkUtil.findPythonSdk(module)?.homeDirectory
+          val ideaDir = project.stateStore.directoryStorePath?.let { VfsUtil.findFile(it, false) }
+          val excludeRoots = listOfNotNull(
+            pythonPath,
+            ideaDir,
+            *ModuleRootManager.getInstance(module).excludeRoots
+          )
+
+
+          VfsUtil.processFileRecursivelyWithoutIgnored(uploadFile) { file ->
+            if (
+              file.isFile && file.isValid &&
+              excludeRoots.none { VfsUtil.isAncestor(it, file, false) }
+            ) {
+              getClosestRoot(file, roots, module)?.apply {
+                val shortPath = VfsUtil.getRelativePath(file, this)
+                if (shortPath != null) filesToUpload.add(shortPath to file)//todo low priority optimize
+              }
+            }
+            true
+          }
         }
-      }
-      //todo low priority create empty folders
-        //todo connect to the board
+        //todo low priority create empty folders
         reportSequentialProgress(filesToUpload.size) { reporter ->
           filesToUpload.forEach { (path, file) ->
             reporter.itemStep(path)

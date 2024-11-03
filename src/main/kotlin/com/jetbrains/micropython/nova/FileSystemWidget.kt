@@ -18,11 +18,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.SimpleTextAttributes
-import com.intellij.ui.components.JBPanelWithEmptyText
+import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.Content
 import com.intellij.ui.treeStructure.Tree
@@ -42,7 +41,6 @@ import java.io.IOException
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
-import kotlin.Throws
 
 private const val MPY_FS_SCAN = """
 import os
@@ -71,7 +69,7 @@ data class ConnectionParameters(
 }
 
 class FileSystemWidget(val project: Project, newDisposable: Disposable) :
-    JBPanelWithEmptyText(BorderLayout()) {
+    JBPanel<FileSystemWidget>(BorderLayout()) {
     var terminalContent: Content? = null
     val ttyConnector: TtyConnector
         get() = comm.ttyConnector
@@ -94,12 +92,9 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     private fun newTreeModel() = DefaultTreeModel(DirNode("/", "/"), true)
 
     init {
-        emptyText.appendText("Board is disconnected")
-        emptyText.appendText("Connect...", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) {
-            runWithModalProgressBlocking(project, "Connecting") {
-                connect()
-                refresh()
-            }
+        tree.emptyText.appendText("Board is disconnected")
+        tree.emptyText.appendLine("Connect...", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) {
+            performReplAction(project, false, "Connecting...") { doConnect(it) }
         }
         tree.setCellRenderer(object : ColoredTreeCellRenderer() {
 
@@ -136,19 +131,19 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         add(actionToolbar.component, BorderLayout.NORTH)
         comm.stateListeners.add {
             when (it) {
-                State.CONNECTED, State.TTY_DETACHED -> tree.isVisible = true
+                State.CONNECTED, State.TTY_DETACHED -> {
+                }
 
                 State.DISCONNECTING,
                 State.DISCONNECTED,
                 State.CONNECTING -> {
                     currentThreadCoroutineScope().launch(Dispatchers.EDT) {
-                        tree.model = newTreeModel()
-                        tree.isVisible = false
+                        tree.model = null
                     }
                 }
             }
         }
-        tree.isVisible = false
+        tree.model = null
     }
 
     suspend fun refresh() {
@@ -238,8 +233,6 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun disconnect() {
         comm.disconnect()
     }
-
-    fun isConnected():Boolean =comm.isConnected()
 
     @Throws(IOException::class)
     suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) =
