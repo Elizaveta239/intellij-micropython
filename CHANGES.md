@@ -1,6 +1,13 @@
 The Changelog
 =============
 
+2.0.0.pre-alpha1 - 2024-11-03
+------------------
+NOVA approach: no internal python scripts, webrepl support, on-device file manager
+
+The Changelog
+=============
+
 1.4.6 - 2024-08-28
 ------------------
 
