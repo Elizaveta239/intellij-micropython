@@ -71,11 +71,11 @@
 
   <actions>
     <group id="micropython.repl.FSToolbar">
-      <action id="micropython.repl.Disconnect" class="com.jetbrains.micropython.nova.Disconnect" icon="/icons/connectPassive.svg"/>
+      <action id="micropython.repl.Disconnect" class="com.jetbrains.micropython.nova.Disconnect" icon="/icons/connectActive.svg"/>
       <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect" icon="/icons/connectActive.svg"/>
       <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh" icon="AllIcons.Actions.Refresh"/>
       <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles" use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
-      <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction"/>
+      <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction" icon="AllIcons.General.GearPlain"/>
     </group>
     <group id="micropython.repl.FSContextMenu">
       <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile" icon="AllIcons.Actions.MenuOpen"/>
@@ -84,7 +84,7 @@
       <reference ref="micropython.repl.Delete"/>
     </group>
 
-    <action id="micropython.repl.UploadFile" class="com.jetbrains.micropython.nova.UploadFile">
+    <action id="micropython.repl.UploadFile" class="com.jetbrains.micropython.nova.UploadFile" icon="AllIcons.Actions.Upload">
       <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="ExecuteInPyConsoleAction" />
       <add-to-group group-id="ProjectViewPopupMenuSettingsGroup" relative-to-action="MarkRootGroup" anchor="after"/>
     </action>

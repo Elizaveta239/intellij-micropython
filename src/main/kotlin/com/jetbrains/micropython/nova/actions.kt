@@ -296,8 +296,7 @@ with open('$name','rb') as f:
     }
 }
 
-open class UploadFile(text: String = "Upload File(s)", icon: Icon = AllIcons.Actions.Upload) :
-    DumbAwareAction(text, "", icon) {
+open class UploadFile() : DumbAwareAction("Upload File(s)") {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -318,7 +317,7 @@ open class UploadFile(text: String = "Upload File(s)", icon: Icon = AllIcons.Act
     }
 }
 
-class OpenSettingsAction : DumbAwareAction("Settings", null, AllIcons.General.Gear) {
+class OpenSettingsAction : DumbAwareAction("Settings") {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         ShowSettingsUtil.getInstance().showSettingsDialog(project, MicroPythonProjectConfigurable::class.java)
