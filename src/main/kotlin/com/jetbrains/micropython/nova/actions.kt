@@ -22,6 +22,7 @@ import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.modules
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.util.text.StringUtilRt
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.testFramework.LightVirtualFile
@@ -258,14 +259,18 @@ with open('$name','rb') as f:
         }
         if (selectedFile !is FileNode) return
         val result = fileSystemWidget.blindExecute(fileReadCommand(selectedFile.fullName)).extractSingleResponse()
-        val text =
+        var text =
             result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
                 .toByteArray().toString(StandardCharsets.UTF_8)
         withContext(Dispatchers.EDT) {
             val fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(selectedFile.name)
-            val infoFile = LightVirtualFile("micropython: ${selectedFile.fullName}", fileType, text)
-            infoFile.isWritable = false
-            FileEditorManager.getInstance(fileSystemWidget.project).openFile(infoFile, false)
+            if(!fileType.isBinary) {
+                //hack for LightVirtualFile and \
+                text = StringUtilRt.convertLineSeparators(text)
+            }
+            val file = LightVirtualFile("micropython: ${selectedFile.fullName}", fileType, text)
+            file.isWritable = false
+            FileEditorManager.getInstance(fileSystemWidget.project).openFile(file, false)
         }
     }
 }
