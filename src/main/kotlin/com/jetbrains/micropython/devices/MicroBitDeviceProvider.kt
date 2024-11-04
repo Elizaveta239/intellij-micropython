@@ -16,17 +16,8 @@
 
 package com.jetbrains.micropython.devices
 
-import com.intellij.execution.configurations.CommandLineState
-import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.OSProcessHandler
-import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.openapi.projectRoots.Sdk
-import com.jetbrains.micropython.run.MicroPythonRunConfiguration
 import com.jetbrains.micropython.settings.MicroPythonTypeHints
 import com.jetbrains.micropython.settings.MicroPythonUsbId
-import com.jetbrains.micropython.settings.microPythonFacet
-import com.jetbrains.python.packaging.PyPackageManager
-import com.jetbrains.python.packaging.PyRequirement
 
 /**
  * @author vlan
@@ -39,13 +30,6 @@ open class MicroBitDeviceProvider : MicroPythonDeviceProvider {
     get() = "https://github.com/JetBrains/intellij-micropython/wiki/BBC-Micro:bit"
 
   override fun checkUsbId(usbId: MicroPythonUsbId): Boolean = usbId == MicroPythonUsbId(0x0D28, 0x0204)
-
-  override fun getPackageRequirements(sdk: Sdk): List<PyRequirement> {
-    val manager = PyPackageManager.getInstance(sdk)
-    return manager.parseRequirements("""|uflash>=1.2.4,<1.3
-                                        |docopt>=0.6.2,<0.7
-                                        |pyserial>=3.5,<4.0""".trimMargin())
-  }
 
   override val typeHints: MicroPythonTypeHints by lazy {
     MicroPythonTypeHints(listOf("microbit"))
