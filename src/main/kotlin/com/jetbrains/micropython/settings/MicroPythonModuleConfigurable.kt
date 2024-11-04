@@ -40,7 +40,7 @@ class MicroPythonModuleConfigurable(private val module: Module) : Configurable {
   }
 
   private val panel: MicroPythonSettingsPanel by lazy {
-    MicroPythonSettingsPanel(module.microPythonFacet!!, disposable)
+    MicroPythonSettingsPanel(module, disposable)
   }
 
   private val enabledCheckbox by lazy {

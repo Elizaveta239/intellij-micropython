@@ -32,7 +32,7 @@ class MicroPythonFacetEditorTab(val configuration: MicroPythonFacetConfiguration
   }
 
   private val panel: MicroPythonSettingsPanel by lazy {
-    MicroPythonSettingsPanel(facet, disposable)
+    MicroPythonSettingsPanel(facet.module, disposable)
   }
 
   override fun isModified(): Boolean = panel.isModified(configuration, facet)

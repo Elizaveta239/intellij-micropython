@@ -19,6 +19,7 @@ package com.jetbrains.micropython.settings
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
@@ -39,25 +40,27 @@ import javax.swing.JPanel
 /**
  * @author vlan
  */
-class MicroPythonSettingsPanel(private val facet: MicroPythonFacet, disposable: Disposable) : JPanel(BorderLayout()) {
+class MicroPythonSettingsPanel(private val module: Module, disposable: Disposable) : JPanel(BorderLayout()) {
   private val deviceTypeCombo = ComboBox(MicroPythonDeviceProvider.providers.toTypedArray())
 
   var deviceProviderUrl = ""
   private var docsHyperlink = ActionLink("") { BrowserUtil.browse(deviceProviderUrl) }
 
-  private val parameters = ConnectionParameters(
+  private val parameters = module.microPythonFacet?.let { facet ->
+  ConnectionParameters(
     uart = facet.configuration.uart,
     url = facet.configuration.webReplUrl,
     password = "",
     portName = facet.configuration.portName,
-  )
+  )} ?: ConnectionParameters("COM1")//todo reasonable port name
+
   val connectionPanel:DialogPanel
 
   init {
     border = IdeBorderFactory.createEmptyBorder(UIUtil.PANEL_SMALL_INSETS)
-    runWithModalProgressBlocking(facet.module.project, "Save password") {
+    runWithModalProgressBlocking(module.project, "Save password") {
       parameters.password =
-        facet.module.project.service<ConnectCredentials>().retrievePassword(parameters.url)
+        module.project.service<ConnectCredentials>().retrievePassword(parameters.url)
     }
     val deviceContentPanel = FormBuilder.createFormBuilder()
       .addLabeledComponent("Device type:", deviceTypeCombo)
