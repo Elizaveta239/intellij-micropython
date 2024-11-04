@@ -149,6 +149,7 @@ except OSError as e:
                     client?.send("\u0003")
                     client?.send("\u0003")
                     client?.send("\u0003")
+                    delay(50)
                     client?.send("\u0001")
                     withTimeoutOrNull(TIMEOUT) {
                         while (!offTtyBuffer.endsWith("\n>")) {
@@ -157,6 +158,7 @@ except OSError as e:
                         promptNotReady = false
                     }
                 } while (promptNotReady)
+                delay(100)
                 offTtyBuffer.clear()
                 val result = mutableListOf<SingleExecResponse>()
                 for (command in commands) {
