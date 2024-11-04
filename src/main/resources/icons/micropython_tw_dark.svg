@@ -1,52 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   inkscape:version="1.0 (4035a4f, 2020-05-01)"
-   sodipodi:docname="micropython_tw_dark.svg"
-   version="1.1"
-   width="13"
-   height="13"
-   id="svg2">
-  <sodipodi:namedview
-     inkscape:current-layer="svg2"
-     inkscape:window-maximized="1"
-     inkscape:window-y="23"
-     inkscape:window-x="0"
-     inkscape:cy="5.955133"
-     inkscape:cx="3.2770802"
-     inkscape:zoom="35.080094"
-     showgrid="false"
-     id="namedview78"
-     inkscape:window-height="855"
-     inkscape:window-width="1440"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0"
-     guidetolerance="10"
-     gridtolerance="10"
-     objecttolerance="10"
-     borderopacity="1"
-     bordercolor="#666666"
-     pagecolor="#ffffff" />
-  <metadata
-     id="metadata312">
-    <rdf:RDF>
-      <cc:Work
-         rdf:about="">
-        <dc:format>image/svg+xml</dc:format>
-        <dc:type
-           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
-      </cc:Work>
-    </rdf:RDF>
-  </metadata>
-  <defs
-     id="defs310" />
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="13" height="13" id="svg2">
+  <metadata id="metadata312"/>
   <path
      d="M 0,0 H 5.9660112 V 10.121428 H 7.0340835 L 7.0339893,0 H 13 V 13 H 10.258084 V 2.8785714 H 9.4830106 V 13 H 3.3830387 V 2.8785714 H 2.6086665 V 13 H 0 Z m 12.158249,10.492856 h -0.977165 v 1.392858 h 0.977165 z"
      id="path4"

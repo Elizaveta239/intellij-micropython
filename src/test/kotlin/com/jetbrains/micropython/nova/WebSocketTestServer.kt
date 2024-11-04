@@ -8,7 +8,6 @@ import org.java_websocket.server.WebSocketServer
 import org.junit.jupiter.api.Assertions.assertEquals
 import java.io.Closeable
 import java.net.InetSocketAddress
-import java.net.URI
 
 private fun logMessage(direction: String, s: String): String {
     val text = s.map { if (it in ' '..'\u007f') it else String.format("\\x%02X", it.code) }.joinToString("")

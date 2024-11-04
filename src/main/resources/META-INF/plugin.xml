@@ -33,7 +33,7 @@
 
   <extensionPoints>
     <extensionPoint qualifiedName="com.jetbrains.micropython.deviceProvider"
-                    interface="com.jetbrains.micropython.devices.MicroPythonDeviceProvider"/>
+                    interface="com.jetbrains.micropython.devices.MicroPythonDeviceProvider" dynamic="true"/>
   </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
@@ -45,7 +45,6 @@
                          id="com.jetbrains.micropython.configurable"
                          displayName="MicroPython"
                          instance="com.jetbrains.micropython.settings.MicroPythonProjectConfigurable"/>
-    <projectService serviceImplementation="com.jetbrains.micropython.settings.MicroPythonDevicesConfiguration"/>
     <localInspection language="Python"
                      displayName="MicroPython requirements inspection"
                      groupName="MicroPython"

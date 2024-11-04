@@ -368,5 +368,4 @@ except OSError as e:
         client?.send("\u0004")
     }
 
-    fun isConnected(): Boolean = client?.isConnected == true
 }
