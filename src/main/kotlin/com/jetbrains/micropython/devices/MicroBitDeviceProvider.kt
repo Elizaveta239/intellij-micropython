@@ -54,15 +54,6 @@ open class MicroBitDeviceProvider : MicroPythonDeviceProvider {
   override val detectedModuleNames: Set<String>
     get() = linkedSetOf("microbit")
 
-  override fun getRunCommandLineState(configuration: MicroPythonRunConfiguration,
-                                      environment: ExecutionEnvironment): CommandLineState? {
-    val pythonPath = configuration.module?.microPythonFacet?.pythonPath ?: return null
-    return object : CommandLineState(environment) {
-      override fun startProcess() =
-          OSProcessHandler(GeneralCommandLine(pythonPath, "-m", "uflash", configuration.path))
-    }
-  }
-
   override val isDefault: Boolean
     get() = true
 }

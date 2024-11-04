@@ -30,10 +30,7 @@ import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
-import com.intellij.util.text.nullize
 import com.jetbrains.micropython.devices.MicroPythonDeviceProvider
 import com.jetbrains.python.facet.FacetLibraryConfigurator
 import com.jetbrains.python.facet.LibraryContributingFacet
@@ -124,49 +121,6 @@ class MicroPythonFacet(facetType: FacetType<out Facet<*>, *>, module: Module, na
 
   val pythonPath: String?
     get() = PythonSdkUtil.findPythonSdk(module)?.homePath
-
-  var devicePath: String?
-    get() = MicroPythonDevicesConfiguration.getInstance(module.project).devicePath.nullize(true)
-    set(value) {
-      MicroPythonDevicesConfiguration.getInstance(module.project).devicePath = value ?: ""
-    }
-
-  var autoDetectDevicePath: Boolean
-    get() = MicroPythonDevicesConfiguration.getInstance(module.project).autoDetectDevicePath
-    set(value) {
-      MicroPythonDevicesConfiguration.getInstance(module.project).autoDetectDevicePath = value
-    }
-
-  fun getOrDetectDevicePathSynchronously(): String? =
-      if (autoDetectDevicePath)
-        detectDevicePathSynchronously(configuration.deviceProvider)
-      else
-        devicePath
-
-  fun detectDevicePathSynchronously(deviceProvider: MicroPythonDeviceProvider): String? {
-    ApplicationManager.getApplication().assertIsDispatchThread()
-
-    var detectedDevicePath: String? = null
-    val deviceProviderName = deviceProvider.presentableName
-    val progress = ProgressManager.getInstance()
-
-    progress.runProcessWithProgressSynchronously({
-      progress.progressIndicator.text = "Detecting connected $deviceProviderName devices..."
-      val detected = findSerialPorts(deviceProvider, progress.progressIndicator).firstOrNull()
-      ApplicationManager.getApplication().invokeLater {
-        if (detected == null) {
-          Messages.showErrorDialog(module.project,
-              """Possible solutions:
-                |
-                |- Check if your device is connected to your computer
-                |- Specify the device path manually in the IDE settings for MicroPython""".trimMargin(),
-              "No $deviceProviderName Devices Detected")
-        }
-        detectedDevicePath = detected
-      }
-    }, "Detecting MicroPython devices", true, module.project, null)
-    return detectedDevicePath
-  }
 
   private fun removeLegacyLibraries() {
     FacetLibraryConfigurator.detachPythonLibrary(module, "Micro:bit")

@@ -111,9 +111,6 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       throw RuntimeConfigurationError(validationResult.errorMessage, runQuickFix)
     }
     facet.pythonPath ?: throw RuntimeConfigurationError("Python interpreter is not found")
-    if (!facet.autoDetectDevicePath && facet.devicePath == null) {
-      throw RuntimeConfigurationError("Device path is not specified in IDE settings", showSettings)
-    }
   }
 
   override fun suggestedName() = "Flash ${PathUtil.getFileName(path)}"

@@ -56,9 +56,6 @@ interface MicroPythonDeviceProvider {
   val detectedModuleNames: Set<String>
     get() = emptySet()
 
-  fun getRunCommandLineState(configuration: MicroPythonRunConfiguration,
-                             environment: ExecutionEnvironment): CommandLineState? = null
-
   val isDefault: Boolean
     get() = false
 }
