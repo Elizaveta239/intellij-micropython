@@ -108,12 +108,12 @@ except OSError as e:
                 val b = content[contentIdx++]
                 chunk.append(
                     when (b) {
+                        in 32.toByte()..126.toByte() -> b.toInt().toChar()
                         0x0D.toByte() -> "\\r"
-                        0xA.toByte() -> "\\n"
+                        0x0A.toByte() -> "\\n"
                         '\''.code.toByte() -> "\\'"
                         '\\'.code.toByte() -> "\\\\"
-                        in 0..31, in 127..255 -> "\\x%02x".format(b)
-                        else -> b.toInt().toChar()
+                        else -> "\\x%02x".format(b)
                     }
                 )
             }
