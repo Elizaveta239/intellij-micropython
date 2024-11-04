@@ -37,7 +37,6 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import javax.swing.Icon
 import kotlin.coroutines.cancellation.CancellationException
 
 
@@ -229,8 +228,8 @@ class DeleteFiles : ReplAction("Delete Item(s)", true) {
             e.presentation.isEnabled = false
             return
         }
-        val selectedFile = fileSystemWidget(e)?.selectedFile()
-        e.presentation.isEnabled = selectedFile?.fullName !in listOf("/", null)
+        val selectedFiles = fileSystemWidget(e)?.selectedFiles()
+        e.presentation.isEnabled = selectedFiles?.any { it.fullName != "/" } == true
     }
 }
 
@@ -259,11 +258,10 @@ class OpenMpyFile : ReplAction("Open file", true) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
-        if (fileSystemWidget(e)?.state != State.CONNECTED) {
-            e.presentation.isEnabledAndVisible = false
-            return
-        }
-        e.presentation.isEnabledAndVisible = fileSystemWidget(e)?.selectedFile() is FileNode
+        val fileSystemWidget = fileSystemWidget(e)
+        e.presentation.isEnabledAndVisible = fileSystemWidget != null &&
+                fileSystemWidget.state == State.CONNECTED &&
+                fileSystemWidget.selectedFiles().any { it is FileNode }
     }
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
@@ -275,23 +273,24 @@ with open('$name','rb') as f:
           print(b.hex())
 """
 
-        val selectedFile = withContext(Dispatchers.EDT) {
-            fileSystemWidget.selectedFile()
+        val selectedFiles = withContext(Dispatchers.EDT) {
+            fileSystemWidget.selectedFiles().mapNotNull { it as? FileNode }
         }
-        if (selectedFile !is FileNode) return
-        val result = fileSystemWidget.blindExecute(fileReadCommand(selectedFile.fullName)).extractSingleResponse()
-        var text =
-            result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
-                .toByteArray().toString(StandardCharsets.UTF_8)
-        withContext(Dispatchers.EDT) {
-            val fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(selectedFile.name)
-            if(!fileType.isBinary) {
-                //hack for LightVirtualFile and \
-                text = StringUtilRt.convertLineSeparators(text)
+        for (file in selectedFiles) {
+            val result = fileSystemWidget.blindExecute(fileReadCommand(file.fullName)).extractSingleResponse()
+            var text =
+                result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
+                    .toByteArray().toString(StandardCharsets.UTF_8)
+            withContext(Dispatchers.EDT) {
+                val fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(file.name)
+                if(!fileType.isBinary) {
+                    //hack for LightVirtualFile and \
+                    text = StringUtilRt.convertLineSeparators(text)
+                }
+                val file = LightVirtualFile("micropython: ${file.fullName}", fileType, text)
+                file.isWritable = false
+                FileEditorManager.getInstance(fileSystemWidget.project).openFile(file, true)
             }
-            val file = LightVirtualFile("micropython: ${selectedFile.fullName}", fileType, text)
-            file.isWritable = false
-            FileEditorManager.getInstance(fileSystemWidget.project).openFile(file, false)
         }
     }
 }

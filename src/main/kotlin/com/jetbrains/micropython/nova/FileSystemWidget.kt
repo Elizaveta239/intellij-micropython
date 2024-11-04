@@ -231,8 +231,8 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         }
     }
 
-    fun selectedFile(): FileSystemNode? {
-        return tree.selectionPath?.lastPathComponent.asSafely<FileSystemNode>()
+    fun selectedFiles(): Collection<FileSystemNode> {
+        return tree.selectionPaths?.mapNotNull { it.lastPathComponent.asSafely<FileSystemNode>() } ?: emptyList()
     }
 
     suspend fun disconnect() {

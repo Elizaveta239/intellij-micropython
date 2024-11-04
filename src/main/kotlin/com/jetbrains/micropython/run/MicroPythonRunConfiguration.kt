@@ -26,6 +26,7 @@ import com.intellij.execution.configurations.RuntimeConfigurationError
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.facet.ui.ValidationResult
 import com.intellij.openapi.actionSystem.LangDataKeys
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.options.ShowSettingsUtil
@@ -157,6 +158,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     }
 
     fun uploadMultipleFiles(project: Project, currentModule: Module?, toUpload: List<VirtualFile>): Boolean {
+      FileDocumentManager.getInstance().saveAllDocuments()
       performReplAction(project, true, "Upload files") {fileSystemWidget ->
         val filesToUpload = mutableListOf<Pair<String, VirtualFile>>()
         for (uploadFile in toUpload) {
