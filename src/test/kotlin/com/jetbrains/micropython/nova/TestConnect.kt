@@ -85,9 +85,9 @@ class TestConnect {
             comm.connect()
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
-            val responseA = comm.blindExecute("print('Test me')")
+            val responseA = comm.blindExecute(LONG_TIMEOUT, "print('Test me')")
             assertEquals("Test me", responseA.extractSingleResponse())
-            val responseB = comm.blindExecute("print('Test me 2')")
+            val responseB = comm.blindExecute(LONG_TIMEOUT, "print('Test me 2')")
             assertEquals("Test me 2", responseB.extractSingleResponse())
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
@@ -152,7 +152,7 @@ class TestConnect {
             comm.connect()
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
-            val response = comm.blindExecute("print('Test me 0')", "print('Test me 1')")
+            val response = comm.blindExecute(LONG_TIMEOUT, "print('Test me 0')", "print('Test me 1')")
             val expected = listOf(
                 SingleExecResponse("Test me 0", ""),
                 SingleExecResponse("Test me 1", ""),

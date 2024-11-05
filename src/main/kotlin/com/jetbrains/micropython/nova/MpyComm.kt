@@ -24,6 +24,7 @@ private const val BOUNDARY = "*********FSOP************"
 
 internal const val TIMEOUT = 2000L
 internal const val LONG_TIMEOUT = 20000L
+internal const val LONG_LONG_TIMEOUT = 600000L
 internal const val SHORT_DELAY = 20L
 
 data class SingleExecResponse(
@@ -125,7 +126,7 @@ except OSError as e:
 
 
         val result = webSocketMutex.withLock {
-            doBlindExecute(*commands.toTypedArray())
+            doBlindExecute(LONG_TIMEOUT, *commands.toTypedArray())
         }
         val error = result.mapNotNull { Strings.nullize(it.stderr) }.joinToString(separator = "\n", limit = 1000)
         if (error.isNotEmpty()) {
@@ -140,7 +141,7 @@ except OSError as e:
     }
 
     @Throws(IOException::class)
-    private suspend fun doBlindExecute(vararg commands: String): ExecResponse {
+    private suspend fun doBlindExecute(commandTimeout:Long, vararg commands: String): ExecResponse {
         state = State.TTY_DETACHED
         return try {
                 withTimeout(LONG_TIMEOUT) {
@@ -164,7 +165,7 @@ except OSError as e:
                 val result = mutableListOf<SingleExecResponse>()
                 for (command in commands) {
                     try {
-                        withTimeout(LONG_TIMEOUT) {
+                        withTimeout(commandTimeout) {
                             command.lines().forEachIndexed { index, s ->
                                 if (index > 0) {
                                     delay(SHORT_DELAY)
@@ -209,10 +210,10 @@ except OSError as e:
     }
 
     @Throws(IOException::class)
-    suspend fun blindExecute(vararg commands: String): ExecResponse {
+    suspend fun blindExecute(commandTimeout:Long, vararg commands: String): ExecResponse {
         checkConnected()
         webSocketMutex.withLock {
-            return doBlindExecute(*commands)
+            return doBlindExecute(commandTimeout, *commands)
         }
     }
 

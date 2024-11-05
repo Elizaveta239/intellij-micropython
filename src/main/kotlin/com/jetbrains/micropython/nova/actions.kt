@@ -278,7 +278,7 @@ with open('$name','rb') as f:
             fileSystemWidget.selectedFiles().mapNotNull { it as? FileNode }
         }
         for (file in selectedFiles) {
-            val result = fileSystemWidget.blindExecute(fileReadCommand(file.fullName)).extractSingleResponse()
+            val result = fileSystemWidget.blindExecute(LONG_LONG_TIMEOUT, fileReadCommand(file.fullName)).extractSingleResponse()
             var text =
                 result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
                     .toByteArray().toString(StandardCharsets.UTF_8)

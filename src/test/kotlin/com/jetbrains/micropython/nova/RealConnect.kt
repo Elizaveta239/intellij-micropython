@@ -41,9 +41,9 @@ class RealConnect {
             comm.connect()
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
-            val responseA = comm.blindExecute("print('Test me')")
+            val responseA = comm.blindExecute(LONG_TIMEOUT, "print('Test me')")
             assertEquals("Test me", responseA.extractSingleResponse())
-            val responseB = comm.blindExecute("print('Test me 2')")
+            val responseB = comm.blindExecute(LONG_TIMEOUT, "print('Test me 2')")
             assertEquals("Test me 2", responseB.extractSingleResponse())
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
@@ -59,7 +59,7 @@ class RealConnect {
             comm.connect()
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
-            val response = comm.blindExecute(
+            val response = comm.blindExecute(LONG_TIMEOUT,
                 "print('Test me ', end='')\n".repeat(repeatCount)
             )
             assertEquals(State.CONNECTED, comm.state )
@@ -82,7 +82,7 @@ class RealConnect {
             comm.connect()
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
-            val response = comm.blindExecute(
+            val response = comm.blindExecute(LONG_TIMEOUT,
                 "print('Test me ', end=''\n"
             )
             assertEquals(1, response.size)
@@ -103,7 +103,7 @@ class RealConnect {
             assertEquals(State.CONNECTED, comm.state )
             assertFalse(comm.isTtySuspended())
             val commands = range(0, repeatCount).mapToObj { "print('Test me $it')" }.toList().toTypedArray()
-            val response = comm.blindExecute(*commands)
+            val response = comm.blindExecute(LONG_TIMEOUT, *commands)
             assertEquals(repeatCount, response.size)
             for (i in 0 until repeatCount) {
                 assertEquals(response[i].stdout, "Test me $i")

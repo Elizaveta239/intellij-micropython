@@ -154,7 +154,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun refresh() {
         comm.checkConnected()
         val newModel = newTreeModel()
-        val dirList = comm.blindExecute(MPY_FS_SCAN).extractSingleResponse()
+        val dirList = comm.blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
         dirList.lines().filter { it.isNotBlank() }.forEach { line ->
             line.split(" ").let { fields ->
                 val flags = fields[0].toInt()
@@ -226,7 +226,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                     }
                 }
                 .toCollection(commands)
-            comm.blindExecute(*commands.toTypedArray())
+            comm.blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
                 .extractResponse()
         }
     }
@@ -260,7 +260,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     fun reset() = comm.reset()
 
     @Throws(IOException::class)
-    suspend fun blindExecute(vararg commands: String): ExecResponse = comm.blindExecute(*commands)
+    suspend fun blindExecute(commandTimeout:Long, vararg commands: String): ExecResponse = comm.blindExecute(commandTimeout, *commands)
 
     @Throws(IOException::class)
     suspend fun connect() = comm.connect()
