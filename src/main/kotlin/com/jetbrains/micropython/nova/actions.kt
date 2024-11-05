@@ -16,6 +16,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.fileTypes.FileTypeRegistry
+import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAwareAction
@@ -282,14 +283,16 @@ with open('$name','rb') as f:
                 result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
                     .toByteArray().toString(StandardCharsets.UTF_8)
             withContext(Dispatchers.EDT) {
-                val fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(file.name)
-                if(!fileType.isBinary) {
-                    //hack for LightVirtualFile and \
+                var fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(file.name)
+                if (fileType.isBinary) {
+                    fileType = PlainTextFileType.INSTANCE
+                } else {
+                    //hack for LightVirtualFile and line endings
                     text = StringUtilRt.convertLineSeparators(text)
                 }
                 val file = LightVirtualFile("micropython: ${file.fullName}", fileType, text)
                 file.isWritable = false
-                FileEditorManager.getInstance(fileSystemWidget.project).openFile(file, true)
+                FileEditorManager.getInstance(fileSystemWidget.project).openFile(file, true, true)
             }
         }
     }
