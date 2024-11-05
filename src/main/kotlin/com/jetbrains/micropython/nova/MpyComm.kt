@@ -142,22 +142,23 @@ except OSError as e:
     @Throws(IOException::class)
     private suspend fun doBlindExecute(vararg commands: String): ExecResponse {
         state = State.TTY_DETACHED
-        return withTimeout(LONG_TIMEOUT) {
-            try {
-                do {
-                    var promptNotReady = true
-                    client?.send("\u0003")
-                    client?.send("\u0003")
-                    client?.send("\u0003")
-                    delay(50)
-                    client?.send("\u0001")
-                    withTimeoutOrNull(TIMEOUT) {
-                        while (!offTtyBuffer.endsWith("\n>")) {
-                            delay(SHORT_DELAY)
+        return try {
+                withTimeout(LONG_TIMEOUT) {
+                    do {
+                        var promptNotReady = true
+                        client?.send("\u0003")
+                        client?.send("\u0003")
+                        client?.send("\u0003")
+                        delay(50)
+                        client?.send("\u0001")
+                        withTimeoutOrNull(TIMEOUT) {
+                            while (!offTtyBuffer.endsWith("\n>")) {
+                                delay(SHORT_DELAY)
+                            }
+                            promptNotReady = false
                         }
-                        promptNotReady = false
-                    }
-                } while (promptNotReady)
+                    } while (promptNotReady)
+                }
                 delay(100)
                 offTtyBuffer.clear()
                 val result = mutableListOf<SingleExecResponse>()
@@ -184,7 +185,7 @@ except OSError as e:
                         throw IOException("Timeout during command execution:$command", e)
                     }
                 }
-                return@withTimeout result
+                return result
             } catch (e: Throwable) {
                 state = State.DISCONNECTED
                 client?.close()
@@ -197,8 +198,6 @@ except OSError as e:
                     state = State.CONNECTED
                 }
             }
-
-        }
     }
 
     fun checkConnected() {
