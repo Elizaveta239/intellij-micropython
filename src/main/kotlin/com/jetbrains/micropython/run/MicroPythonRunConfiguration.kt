@@ -32,10 +32,10 @@ import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.guessModuleDir
+import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.project.rootManager
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ui.configuration.ProjectSettingsService
-import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
@@ -69,7 +69,8 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
 
   override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
-    val toUpload = listOf(VfsUtil.findFile(Path.of(path), true) ?: return null)
+    val uploadPath = if (!path.isEmpty()) path else  project.basePath ?: return null
+    val toUpload = listOf(VfsUtil.findFile(Path.of(uploadPath), true) ?: return null)
     val currentModule = environment.dataContext?.getData(LangDataKeys.MODULE)
 
     if (uploadMultipleFiles(project, currentModule, toUpload)) {
@@ -85,9 +86,6 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
   override fun checkConfiguration() {
     super.checkConfiguration()
-    if (StringUtil.isEmpty(path)) {
-      throw RuntimeConfigurationError("Path is not specified")
-    }
     val m = module ?: throw RuntimeConfigurationError("Module for path is not found")
     val showSettings = Runnable {
       when {
@@ -138,6 +136,10 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
   val module: Module?
     get() {
+      if (path.isEmpty()) {
+        val projectDir = project.guessProjectDir()
+        if (projectDir != null) return ModuleUtil.findModuleForFile(projectDir, project)
+      }
       val file = StandardFileSystems.local().findFileByPath(path) ?: return null
       return ModuleUtil.findModuleForFile(file, project)
     }
