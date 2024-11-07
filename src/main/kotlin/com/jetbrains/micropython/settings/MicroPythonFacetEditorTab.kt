@@ -35,7 +35,7 @@ class MicroPythonFacetEditorTab(val configuration: MicroPythonFacetConfiguration
     MicroPythonSettingsPanel(facet.module, disposable)
   }
 
-  override fun isModified(): Boolean = panel.isModified(configuration, facet)
+  override fun isModified(): Boolean = panel.isModified(configuration)
 
   override fun getDisplayName(): String = panel.getDisplayName()
 
@@ -47,6 +47,6 @@ class MicroPythonFacetEditorTab(val configuration: MicroPythonFacetConfiguration
   }
 
   override fun reset() {
-    panel.reset(configuration, facet)
+    panel.reset(configuration)
   }
 }
