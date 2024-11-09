@@ -13,9 +13,10 @@ import com.intellij.openapi.actionSystem.Toggleable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.ex.util.EditorUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.module.ModuleUtil
@@ -27,6 +28,7 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.text.StringUtilRt
+import com.intellij.openapi.vfs.readText
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.testFramework.LightVirtualFile
@@ -61,7 +63,6 @@ abstract class ReplAction(text: String, private val connectionRequired: Boolean)
         val project = e.project ?: return
         performReplAction(project, connectionRequired, actionDescription, this::performAction)
     }
-
 
     protected fun fileSystemWidget(e: AnActionEvent): FileSystemWidget? = fileSystemWidget(e.project)
     fun enableIfConnected(e: AnActionEvent) {
@@ -235,20 +236,58 @@ class DeleteFiles : ReplAction("Delete Item(s)", true) {
     }
 }
 
-class InstantRun : ReplAction("Instant Run", true) {
+class InstantRun : DumbAwareAction() {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    override fun update(e: AnActionEvent) {
+        e.presentation.isEnabled = e.getData(CommonDataKeys.VIRTUAL_FILE) != null
+
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val code = e.getData(CommonDataKeys.VIRTUAL_FILE)?.readText() ?: return
+        performReplAction(project,true,"Run code") {
+            it.instantRun(code, false)
+        }
+    }
+}
+
+class InstantFragmentRun : ReplAction("Instant Run", true) {
     override val actionDescription: String = "Run code"
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.project?.let { FileEditorManager.getInstance(it).selectedEditor } != null
+        val editor = editor(e.project)
+        if (editor == null) {
+            e.presentation.isEnabledAndVisible = false
+            return
+        }
+        val emptySelection = editor.selectionModel.getSelectedText(true).isNullOrBlank()
+        e.presentation.text =
+            if (emptySelection) "Execute Line in Micropython REPL" else "Execute Selection in Micropython REPL"
     }
+
+    private fun editor(project: Project?): Editor? =
+        project?.let { FileEditorManager.getInstance(it).selectedTextEditor }
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
         val code = withContext(Dispatchers.EDT) {
-            FileEditorManager.getInstance(fileSystemWidget.project).selectedEditor.asSafely<TextEditor>()?.editor?.document?.text
+            val editor = editor(fileSystemWidget.project) ?: return@withContext null
+            var text = editor.selectionModel.getSelectedText(true)
+            if (text.isNullOrBlank()) {
+                try {
+                    val range = EditorUtil.calcCaretLineTextRange(editor)
+                    if (!range.isEmpty) {
+                        text = editor.document.getText(range).trim()
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+            text
         }
-        if (code != null) {
-            fileSystemWidget.instantRun(code)
+        if (!code.isNullOrBlank()) {
+            fileSystemWidget.instantRun(code, true)
         }
     }
 }
@@ -299,7 +338,7 @@ with open('$name','rb') as f:
     }
 }
 
-open class UploadFile() : DumbAwareAction("Upload File(s)") {
+open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device") {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
