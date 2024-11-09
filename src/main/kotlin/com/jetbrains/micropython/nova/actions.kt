@@ -13,6 +13,8 @@ import com.intellij.openapi.actionSystem.Toggleable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.ex.util.EditorUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
@@ -235,7 +237,7 @@ class DeleteFiles : ReplAction("Delete Item(s)", true) {
     }
 }
 
-class InstantRun : ReplAction("Instant Run", true) {
+class InstantRun : ReplAction("Execute File in Micropython REPL", true) {
     override val actionDescription: String = "Run code"
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
@@ -248,7 +250,46 @@ class InstantRun : ReplAction("Instant Run", true) {
             FileEditorManager.getInstance(fileSystemWidget.project).selectedEditor.asSafely<TextEditor>()?.editor?.document?.text
         }
         if (code != null) {
-            fileSystemWidget.instantRun(code)
+            fileSystemWidget.instantRun(code, false)
+        }
+    }
+}
+
+class InstantFragmentRun : ReplAction("Instant Run", true) {
+    override val actionDescription: String = "Run code"
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val editor = editor(e.project)
+        if (editor == null) {
+            e.presentation.isEnabledAndVisible = false
+            return
+        }
+        val emptySelection = editor.selectionModel.getSelectedText(true).isNullOrBlank()
+        e.presentation.text =
+            if (emptySelection) "Execute Line in Micropython REPL" else "Execute Selection Micropython REPL"
+    }
+
+    private fun editor(project: Project?): Editor? =
+        project?.let { FileEditorManager.getInstance(it).selectedTextEditor }
+
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
+        val code = withContext(Dispatchers.EDT) {
+            val editor = editor(fileSystemWidget.project) ?: return@withContext null
+            var text = editor.selectionModel.getSelectedText(true)
+            if (text.isNullOrBlank()) {
+                try {
+                    val range = EditorUtil.calcCaretLineTextRange(editor)
+                    if (!range.isEmpty) {
+                        text = editor.document.getText(range).trim()
+                    }
+                } catch (_: Throwable) {
+                }
+            }
+            text
+        }
+        if (!code.isNullOrBlank()) {
+            fileSystemWidget.instantRun(code, true)
         }
     }
 }
@@ -299,7 +340,7 @@ with open('$name','rb') as f:
     }
 }
 
-open class UploadFile() : DumbAwareAction("Upload File(s)") {
+open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device") {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {

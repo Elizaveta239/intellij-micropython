@@ -30,8 +30,10 @@ import com.intellij.util.ExceptionUtil
 import com.intellij.util.asSafely
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.containers.TreeTraversal
+import com.intellij.util.ui.NamedColorUtil
 import com.intellij.util.ui.UIUtil
 import com.intellij.util.ui.tree.TreeUtil
+import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jetbrains.micropython.settings.DEFAULT_WEBREPL_URL
@@ -247,9 +249,27 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         comm.upload(relativeName, contentsToByteArray)
 
     @Throws(IOException::class)
-    suspend fun instantRun(code: @NonNls String) {
+    suspend fun instantRun(code: @NonNls String, showCode: Boolean) {
         withContext(Dispatchers.EDT) {
             activateRepl()
+        }
+        if (showCode) {
+            val terminal = UIUtil.findComponentOfType(terminalContent?.component, JediTermWidget::class.java)?.terminal
+            terminal?.apply {
+                carriageReturn()
+                newLine()
+                code.lines().forEach {
+                    val savedStyle = styleState.current
+                    val inactive = NamedColorUtil.getInactiveTextColor()
+                    val color = TerminalColor(inactive.red, inactive.green, inactive.blue)
+                    styleState.reset()
+                    styleState.current = styleState.current.toBuilder().setForeground(color).build()
+                    writeUnwrappedString(it)
+                    carriageReturn()
+                    newLine()
+                    styleState.current = savedStyle
+                }
+            }
         }
         comm.instantRun(code)
     }
