@@ -85,15 +85,14 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
     @Throws(IOException::class, CancellationException::class, TimeoutCancellationException::class)
     suspend fun upload(fullName: @NonNls String, content: ByteArray) {
         checkConnected()
-        val commands = mutableListOf<String>()
+        val commands = mutableListOf<String>("import os, errno")
         var slashIdx = 0
         while (slashIdx >= 0) {
             slashIdx = fullName.indexOf('/', slashIdx + 1)
             if (slashIdx > 0) {
                 val folderName = fullName.substring(0, slashIdx)
                 commands.add(
-"""import os, errno
-try: os.mkdir('$folderName');
+"""try: os.mkdir('$folderName');
 except OSError as e:
     if e.errno != errno.EEXIST: raise """
                 )
@@ -150,7 +149,7 @@ except OSError as e:
                         client?.send("\u0003")
                         client?.send("\u0003")
                         client?.send("\u0003")
-                        delay(50)
+                        delay(SHORT_DELAY)
                         client?.send("\u0001")
                         withTimeoutOrNull(TIMEOUT) {
                             while (!offTtyBuffer.endsWith("\n>")) {
@@ -160,7 +159,7 @@ except OSError as e:
                         }
                     } while (promptNotReady)
                 }
-                delay(100)
+                delay(SHORT_DELAY)
                 offTtyBuffer.clear()
                 val result = mutableListOf<SingleExecResponse>()
                 for (command in commands) {
