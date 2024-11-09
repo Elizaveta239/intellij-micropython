@@ -1,5 +1,6 @@
 package com.jetbrains.micropython.nova
 
+import com.intellij.openapi.diagnostic.thisLogger
 import jssc.SerialPort
 import jssc.SerialPort.FLOWCONTROL_NONE
 import jssc.SerialPortEvent
@@ -12,6 +13,7 @@ class SerialClient(private val comm: MpyComm) : Client {
 
     private val port = SerialPort(comm.connectionParameters.portName)
     override fun send(string: String) {
+        this@SerialClient.thisLogger().debug("< $string")
         port.writeString(string)
     }
 
@@ -23,7 +25,9 @@ class SerialClient(private val comm: MpyComm) : Client {
         override fun serialEvent(event: SerialPortEvent) {
             if (event.eventType and SerialPort.MASK_RXCHAR != 0) {
                 val count = event.eventValue
-                comm.dataReceived(port.readBytes(count).toString(StandardCharsets.UTF_8))
+                val s = port.readBytes(count).toString(StandardCharsets.UTF_8)
+                comm.dataReceived(s)
+                this@SerialClient.thisLogger().debug("> $s")
             }
         }
     }
