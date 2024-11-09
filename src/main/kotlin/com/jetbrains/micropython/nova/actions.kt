@@ -6,6 +6,7 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.ActionUpdateThread.BGT
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.Toggleable
@@ -299,7 +300,7 @@ with open('$name','rb') as f:
 }
 
 open class UploadFile() : DumbAwareAction("Upload File(s)") {
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+    override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
         val project = e.project
@@ -323,5 +324,26 @@ class OpenSettingsAction : DumbAwareAction("Settings") {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         ShowSettingsUtil.getInstance().showSettingsDialog(project, MicroPythonProjectConfigurable::class.java)
+    }
+}
+
+class InterruptAction: ReplAction("Interrupt", true) {
+    override fun getActionUpdateThread(): ActionUpdateThread = BGT
+    override fun update(e: AnActionEvent)  = enableIfConnected(e)
+    override val actionDescription: @NlsContexts.DialogMessage String = "Interrupt..."
+
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
+        fileSystemWidget.interrupt()
+    }
+}
+
+class SoftResetAction: ReplAction("Reset", true) {
+    override fun getActionUpdateThread(): ActionUpdateThread = BGT
+    override fun update(e: AnActionEvent)  = enableIfConnected(e)
+    override val actionDescription: @NlsContexts.DialogMessage String = "Reset..."
+
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
+        fileSystemWidget.reset()
+        fileSystemWidget.clearTerminalIfNeeded()
     }
 }

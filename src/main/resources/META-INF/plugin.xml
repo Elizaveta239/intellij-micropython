@@ -70,15 +70,24 @@
   </extensions>
 
   <actions>
-    <group id="micropython.repl.FSToolbar">
-      <action id="micropython.repl.Disconnect" class="com.jetbrains.micropython.nova.Disconnect" icon="/icons/connectActive.svg"/>
-      <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect" icon="/icons/connectActive.svg"/>
-      <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh" icon="AllIcons.Actions.Refresh"/>
-      <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles" use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
-      <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction" icon="AllIcons.General.GearPlain"/>
-      <action id="micropython.repl.AutoClear" class="com.jetbrains.micropython.nova.AutoClearAction"/>
-    </group>
-    <group id="micropython.repl.FSContextMenu">
+      <group id="micropython.repl.FSToolbar">
+          <action id="micropython.repl.Disconnect" class="com.jetbrains.micropython.nova.Disconnect"
+                  icon="/icons/connectActive.svg">
+              <keyboard-shortcut first-keystroke="control CLOSE_BRACKET" keymap="$default"/>
+          </action>
+          <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect"
+                  icon="/icons/connectActive.svg"/>
+          <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh"
+                  icon="AllIcons.Actions.StopRefresh">
+              <keyboard-shortcut first-keystroke="control R" keymap="$default"/>
+          </action>
+          <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles"
+                  use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
+          <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction"
+                  icon="AllIcons.General.GearPlain"/>
+          <action id="micropython.repl.AutoClear" class="com.jetbrains.micropython.nova.AutoClearAction"/>
+      </group>
+      <group id="micropython.repl.FSContextMenu">
       <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile" icon="AllIcons.Actions.MenuOpen"/>
       <reference ref="micropython.repl.Refresh"/>
       <separator/>
@@ -91,10 +100,16 @@
     </action>
 
     <group id="micropython.repl.ReplToolbar">
-      <reference ref="micropython.repl.Connect"/>
-      <reference ref="micropython.repl.Disconnect"/>
-      <reference ref="micropython.repl.Refresh"/>
-      <reference ref="micropython.repl.ConnectionParameters"/>
+        <reference ref="micropython.repl.Connect"/>
+        <reference ref="micropython.repl.Disconnect"/>
+        <action id="micropython.repl.SoftReset" class="com.jetbrains.micropython.nova.SoftResetAction"
+                icon="AllIcons.Actions.StopAndRestart" description="Soft reset the board">
+            <keyboard-shortcut first-keystroke="control D" keymap="$default"/>
+        </action>
+        <action id="micropython.repl.Interrupt" class="com.jetbrains.micropython.nova.InterruptAction"
+                icon="AllIcons.Actions.Suspend" description="Interrupt a running program">
+        </action>
+        <reference ref="micropython.repl.ConnectionParameters"/>
       <reference ref="micropython.repl.AutoClear"/>
     </group>
     <action id="micropython.repl.InstantRun" class="com.jetbrains.micropython.nova.InstantRun" text="Instant Run" icon="AllIcons.Actions.Rerun">

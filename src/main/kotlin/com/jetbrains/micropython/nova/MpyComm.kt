@@ -367,4 +367,8 @@ except OSError as e:
         client?.send("\u0004")
     }
 
+    fun interrupt() {
+        client?.send("\u0003")
+    }
+
 }

@@ -264,6 +264,12 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
 
     @Throws(IOException::class)
     suspend fun blindExecute(commandTimeout: Long, vararg commands: String): ExecResponse {
+        clearTerminalIfNeeded()
+        return comm.blindExecute(commandTimeout, *commands)
+
+    }
+
+    internal suspend fun clearTerminalIfNeeded() {
         if (AutoClearAction.isAutoClearEnabled) {
             withContext(Dispatchers.EDT) {
                 val widget =
@@ -271,14 +277,15 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 widget?.terminalPanel?.clearBuffer()
             }
         }
-        return comm.blindExecute(commandTimeout, *commands)
-
     }
 
     @Throws(IOException::class)
     suspend fun connect() = comm.connect()
 
     fun setConnectionParams(connectionParameters: ConnectionParameters) = comm.setConnectionParams(connectionParameters)
+    fun interrupt() {
+        comm.interrupt()
+    }
 
 }
 
