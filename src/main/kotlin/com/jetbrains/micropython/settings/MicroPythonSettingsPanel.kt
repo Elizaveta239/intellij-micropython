@@ -18,21 +18,30 @@ package com.jetbrains.micropython.settings
 
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.components.service
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.ui.IdeBorderFactory
+import com.intellij.ui.MutableCollectionComboBoxModel
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.ActionLink
 import com.intellij.ui.dsl.builder.*
+import com.intellij.util.asSafely
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
 import com.jetbrains.micropython.devices.MicroPythonDeviceProvider
 import com.jetbrains.micropython.nova.ConnectCredentials
 import com.jetbrains.micropython.nova.ConnectionParameters
+import com.jetbrains.micropython.nova.SerialPortListService
 import com.jetbrains.micropython.nova.messageForBrokenUrl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import javax.swing.JList
 import javax.swing.JPanel
@@ -64,13 +73,42 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
         }
         val deviceContentPanel = FormBuilder.createFormBuilder().addLabeledComponent("Device type:", deviceTypeCombo)
             .addComponent(docsHyperlink).panel
+        val portSelectModel = MutableCollectionComboBoxModel<String>()
+        if (parameters.portName.isNotBlank()) {
+            portSelectModel.add(parameters.portName)
+        }
 
+        module.project.service<SerialPortListService>().listPorts { ports ->
+            withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) {
+                portSelectModel.addAll(portSelectModel.size, ports.filter { !portSelectModel.contains(it) })
+                if (portSelectModel.selectedItem.asSafely<String>().isNullOrBlank() && !portSelectModel.isEmpty) {
+                    portSelectModel.selectedItem = portSelectModel.items.firstOrNull()
+                }
+            }
+        }
         connectionPanel = panel {
             group("Connection") {
                 buttonsGroup {
                     row {
                         radioButton("Serial").bindSelected(parameters::uart)
-                        textField().bindText(parameters::portName).label("Port")
+                        comboBox(portSelectModel)
+                            .label("Port:")
+                            .bind(
+                                { it.editor.item.toString() },
+                                { component, text -> component.selectedItem = text },
+                                parameters::portName.toMutableProperty()
+                            )
+                            .validationInfo { comboBox ->
+                                val portName = comboBox.selectedItem.asSafely<String>()
+                                if (portName.isNullOrBlank()) ValidationInfo("No port name provided").withOKEnabled()
+                                else if (!portSelectModel.contains(portName)) ValidationInfo("Unknown port name").asWarning()
+                                    .withOKEnabled()
+                                else null
+                            }
+                            .applyToComponent {
+                                isEditable = true
+                            }
+
                     }
                     separator()
                     row {
