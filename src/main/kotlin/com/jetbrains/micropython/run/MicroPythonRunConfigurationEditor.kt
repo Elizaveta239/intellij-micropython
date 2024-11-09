@@ -30,16 +30,16 @@ class MicroPythonRunConfigurationEditor(config: MicroPythonRunConfiguration) : S
     private val resetOnSuccess = CheckBox("Reset on success", selected = true)
     private val runReplOnSuccess = CheckBox("Open MicroPython REPL on success", selected = true)
 
-  init {
-    val descriptor = FileChooserDescriptor(true, true, false, false, false, false)
-    val listener = ComponentWithBrowseButton.BrowseFolderActionListener(
-        "Select Path", "",
-        pathField,
-        config.project, descriptor,
-        TextComponentAccessor.TEXT_FIELD_WHOLE_TEXT
-    )
-    pathField.addActionListener(listener)
-  }
+    init {
+        val descriptor = FileChooserDescriptor(true, true, false, false, false, false).withTitle("Select Path")
+        val listener = ComponentWithBrowseButton.BrowseFolderActionListener(
+            pathField,
+            config.project,
+            descriptor,
+            TextComponentAccessor.TEXT_FIELD_WHOLE_TEXT
+        )
+        pathField.addActionListener(listener)
+    }
 
   override fun createEditor(): JComponent =
       FormBuilder.createFormBuilder()

@@ -3,7 +3,12 @@ The Changelog
 
 2.0.0.pre-alpha - 2024-11-04
 ------------------
-NOVA approach: no internal python scripts, webrepl support, on-device file manager
+NOVA approach: 
+ * completely new communication level, no python dependencies anymore
+ * webrepl support
+ * on-device file manager
+ * instant run actions
+ * upload file, folder, whole project
 
 The Changelog
 =============

@@ -8,6 +8,7 @@ repositories {
     intellijPlatform {
         defaultRepositories()
         jetbrainsRuntime()
+        snapshots()
     }
 }
 
@@ -65,7 +66,7 @@ tasks {
         compilerOptions {
             jvmTarget = JvmTarget.JVM_21
             languageVersion = KotlinVersion.DEFAULT
-            apiVersion = KotlinVersion.KOTLIN_1_9
+            apiVersion = KotlinVersion.KOTLIN_2_0
         }
     }
     prepareSandbox {

@@ -30,7 +30,7 @@
     </dependencies>
 
 
-    <idea-version since-build="242" until-build="242.*"/>
+    <idea-version since-build="243" until-build="243.*"/>
 
     <extensionPoints>
         <extensionPoint qualifiedName="com.jetbrains.micropython.deviceProvider"
