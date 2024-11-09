@@ -34,6 +34,7 @@ import com.intellij.util.ui.UIUtil
 import com.intellij.util.ui.tree.TreeUtil
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.ui.JediTermWidget
+import com.jetbrains.micropython.settings.DEFAULT_WEBREPL_URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,7 +72,7 @@ data class ConnectionParameters(
     var password: String,
     var portName: String
 ) {
-    constructor(portName: String) : this(uart = true, url = "ws://192.168.4.1", password = "", portName = portName)
+    constructor(portName: String) : this(uart = true, url = DEFAULT_WEBREPL_URL, password = "", portName = portName)
     constructor(url: String, password: String) : this(uart = false, url = url, password = password, portName = "")
 }
 
