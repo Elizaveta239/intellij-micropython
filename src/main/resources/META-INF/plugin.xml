@@ -15,8 +15,9 @@
         <li>Run REPL on a device</li>
       </ul>
       <br/>
-      <p>Currently the plugin supports ESP8266, Pyboard, Micro:bit, and Raspberry Pi Pico devices. Your feedback and contributions
-        are welcome! See <a href="https://github.com/JetBrains/intellij-micropython">the project page</a> on GitHub.</p>
+      <p>Currently, the plugin supports ESP8266, Pyboard, Micro:bit, and Raspberry Pi Pico devices.
+       Your feedback and contributions are welcome!
+       See <a href="https://github.com/JetBrains/intellij-micropython">the project page</a> on GitHub.</p>
     ]]></description>
   <version>SNAPSHOT</version>
   <vendor>JetBrains</vendor>
@@ -75,6 +76,7 @@
       <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh" icon="AllIcons.Actions.Refresh"/>
       <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles" use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
       <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction" icon="AllIcons.General.GearPlain"/>
+      <action id="micropython.repl.AutoClear" class="com.jetbrains.micropython.nova.AutoClearAction"/>
     </group>
     <group id="micropython.repl.FSContextMenu">
       <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile" icon="AllIcons.Actions.MenuOpen"/>
@@ -93,6 +95,7 @@
       <reference ref="micropython.repl.Disconnect"/>
       <reference ref="micropython.repl.Refresh"/>
       <reference ref="micropython.repl.ConnectionParameters"/>
+      <reference ref="micropython.repl.AutoClear"/>
     </group>
     <action id="micropython.repl.InstantRun" class="com.jetbrains.micropython.nova.InstantRun" text="Instant Run" icon="AllIcons.Actions.Rerun">
       <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="ExecuteInPyConsoleAction" />

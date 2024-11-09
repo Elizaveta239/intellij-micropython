@@ -30,8 +30,10 @@ import com.intellij.util.ExceptionUtil
 import com.intellij.util.asSafely
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.containers.TreeTraversal
+import com.intellij.util.ui.UIUtil
 import com.intellij.util.ui.tree.TreeUtil
 import com.jediterm.terminal.TtyConnector
+import com.jediterm.terminal.ui.JediTermWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -154,7 +156,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun refresh() {
         comm.checkConnected()
         val newModel = newTreeModel()
-        val dirList = comm.blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
+        val dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
         dirList.lines().filter { it.isNotBlank() }.forEach { line ->
             line.split(" ").let { fields ->
                 val flags = fields[0].toInt()
@@ -226,7 +228,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                     }
                 }
                 .toCollection(commands)
-            comm.blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+            blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
                 .extractResponse()
         }
     }
@@ -260,7 +262,17 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     fun reset() = comm.reset()
 
     @Throws(IOException::class)
-    suspend fun blindExecute(commandTimeout:Long, vararg commands: String): ExecResponse = comm.blindExecute(commandTimeout, *commands)
+    suspend fun blindExecute(commandTimeout: Long, vararg commands: String): ExecResponse {
+        if (AutoClearAction.isAutoClearEnabled) {
+            withContext(Dispatchers.EDT) {
+                val widget =
+                    UIUtil.findComponentOfType(terminalContent?.component, JediTermWidget::class.java)
+                widget?.terminalPanel?.clearBuffer()
+            }
+        }
+        return comm.blindExecute(commandTimeout, *commands)
+
+    }
 
     @Throws(IOException::class)
     suspend fun connect() = comm.connect()

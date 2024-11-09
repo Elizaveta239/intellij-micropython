@@ -1,9 +1,9 @@
 package com.jetbrains.micropython.nova
 
+import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.ActionGroup
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ex.CheckboxAction
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -59,5 +59,24 @@ class MicroPythonToolWindow : ToolWindowFactory, DumbAware {
 
     }
 
+}
+
+class AutoClearAction : CheckboxAction("Auto clear", "Automatically clear REPL window board data exchange", null),
+    DumbAware {
+
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    override fun isSelected(e: AnActionEvent): Boolean = isAutoClearEnabled
+
+    override fun setSelected(e: AnActionEvent, state: Boolean) =
+        PropertiesComponent.getInstance().setValue(PROPERTY_NAME, state, DEFAULT)
+
+    companion object {
+        private const val PROPERTY_NAME = "micropython.repl.autoClear"
+        private const val DEFAULT = true
+        val isAutoClearEnabled: Boolean
+            get() = PropertiesComponent.getInstance().getBoolean(PROPERTY_NAME, DEFAULT)
+
+    }
 }
 

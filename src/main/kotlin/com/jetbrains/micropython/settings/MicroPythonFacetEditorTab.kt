@@ -37,7 +37,7 @@ class MicroPythonFacetEditorTab(val configuration: MicroPythonFacetConfiguration
 
   override fun isModified(): Boolean = panel.isModified(configuration)
 
-  override fun getDisplayName(): String = panel.getDisplayName()
+  override fun getDisplayName(): String = "MicroPython"
 
   override fun createComponent(): JComponent = panel
 

@@ -62,7 +62,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
             password = "",
             portName = facet.configuration.portName,
         )
-    } ?: ConnectionParameters("COM1")//todo reasonable port name
+    } ?: ConnectionParameters("")
 
     val connectionPanel: DialogPanel
 
@@ -127,7 +127,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
                                 .comment("(4..9 symbols)")
                                 .columns(40)
                                 .validationInfo { field ->
-                                    if (field.password.size !in PASSWORD_LENGHT) error("Allowed password length is $PASSWORD_LENGHT").withOKEnabled() else null
+                                    if (field.password.size !in PASSWORD_LENGTH) error("Allowed password length is $PASSWORD_LENGTH").withOKEnabled() else null
                                 }
                         }.layout(RowLayout.LABEL_ALIGNED)
                     }
@@ -168,8 +168,6 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
         return deviceTypeCombo.selectedItem != configuration.deviceProvider || connectionPanel.isModified()
     }
 
-    fun getDisplayName(): String = "MicroPython"
-
     fun apply(configuration: MicroPythonFacetConfiguration, facet: MicroPythonFacet) {
         configuration.deviceProvider = selectedProvider
         connectionPanel.apply()
@@ -191,4 +189,4 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
         get() = deviceTypeCombo.selectedItem as MicroPythonDeviceProvider
 }
 
-private val PASSWORD_LENGHT = 4..9
+private val PASSWORD_LENGTH= 4..9
