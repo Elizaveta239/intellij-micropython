@@ -306,22 +306,12 @@ class OpenMpyFile : ReplAction("Open file", true) {
     }
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
-        fun fileReadCommand(name: String) = """
-with open('$name','rb') as f:
-    while 1:
-          b=f.read(50)
-          if not b:break
-          print(b.hex())
-"""
 
         val selectedFiles = withContext(Dispatchers.EDT) {
             fileSystemWidget.selectedFiles().mapNotNull { it as? FileNode }
         }
         for (file in selectedFiles) {
-            val result = fileSystemWidget.blindExecute(LONG_LONG_TIMEOUT, fileReadCommand(file.fullName)).extractSingleResponse()
-            var text =
-                result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
-                    .toByteArray().toString(StandardCharsets.UTF_8)
+            var text = fileSystemWidget.download(file.fullName).toString(StandardCharsets.UTF_8)
             withContext(Dispatchers.EDT) {
                 var fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(file.name)
                 if (fileType.isBinary) {

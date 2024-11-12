@@ -1,37 +1,42 @@
-package com.jetbrains.micropython.nova
+package com.jetbrains.micropython.nova.real
 
+import com.jetbrains.micropython.nova.ExecResponse
+import com.jetbrains.micropython.nova.LONG_TIMEOUT
+import com.jetbrains.micropython.nova.MpyCommForTest
+import com.jetbrains.micropython.nova.State
+import com.jetbrains.micropython.nova.extractSingleResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
-import java.util.concurrent.TimeUnit.MILLISECONDS
-import java.util.stream.IntStream.range
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
+import java.util.concurrent.TimeUnit
+import java.util.stream.IntStream
 
-@Disabled("Works only id a real board is at COM28")
-class RealSerialConnect {
+abstract class RealConnectTestBase {
 
-    private val serialParams = ConnectionParameters("COM28")
-    private lateinit var comm: MpyCommForTest
+    protected lateinit var comm: MpyCommForTest
 
     @BeforeEach
     fun init() {
-        Thread.sleep(1000)
-        comm = MpyCommForTest { fail(it) }
-        Thread.sleep(500)
+        doInit()
     }
+
+    abstract fun doInit()
 
     @AfterEach
     fun teardown() {
         comm.close()
     }
 
-
     @Test
-    @Timeout(5000, unit = MILLISECONDS)
+    @Timeout(5000, unit = TimeUnit.MILLISECONDS)
     fun realBlindExecute() {
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())
@@ -45,15 +50,15 @@ class RealSerialConnect {
     }
 
     @Test
-    @Timeout(5000, unit = MILLISECONDS)
+    @Timeout(5000, unit = TimeUnit.MILLISECONDS)
     fun realBlindExecuteLong() {
         val repeatCount = 60
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())
-            val response = comm.blindExecute(LONG_TIMEOUT,
+            val response = comm.blindExecute(
+                LONG_TIMEOUT,
                 "print('Test me ', end='')\n".repeat(repeatCount)
             )
             assertEquals(State.CONNECTED, comm.state)
@@ -69,14 +74,14 @@ class RealSerialConnect {
     }
 
     @Test
-    @Timeout(5000, unit = MILLISECONDS)
+    @Timeout(5000, unit = TimeUnit.MILLISECONDS)
     fun realBlindExecuteWrong() {
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())
-            val response = comm.blindExecute(LONG_TIMEOUT,
+            val response = comm.blindExecute(
+                LONG_TIMEOUT,
                 "print('Test me ', end=''\n"
             )
             assertEquals(1, response.size)
@@ -88,15 +93,14 @@ class RealSerialConnect {
     }
 
     @Test
-    @Timeout(50000, unit = MILLISECONDS)
+    @Timeout(50000, unit = TimeUnit.MILLISECONDS)
     fun realBlindExecuteMultiple() {
         val repeatCount = 50
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())
-            val commands = range(0, repeatCount).mapToObj { "print('Test me $it')" }.toList().toTypedArray()
+            val commands = IntStream.range(0, repeatCount).mapToObj { "print('Test me $it')" }.toList().toTypedArray()
             val response = comm.blindExecute(LONG_TIMEOUT, *commands)
             assertEquals(repeatCount, response.size)
             for (i in 0 until repeatCount) {
@@ -109,10 +113,9 @@ class RealSerialConnect {
     }
 
     @Test
-    @Timeout(500000, unit = MILLISECONDS)
+    @Timeout(500000, unit = TimeUnit.MILLISECONDS)
     fun realInstantRun() {
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())
@@ -136,7 +139,6 @@ class RealSerialConnect {
     @Disabled
     fun longRunConnection() {
         runBlocking {
-            comm.setConnectionParams(serialParams)
             comm.connect()
             assertEquals(State.CONNECTED, comm.state)
             assertFalse(comm.isTtySuspended())

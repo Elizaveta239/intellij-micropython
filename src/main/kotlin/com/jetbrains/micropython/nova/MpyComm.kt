@@ -371,4 +371,17 @@ except OSError as e:
         client?.send("\u0003")
     }
 
+    suspend fun download(fileName: @NonNls String): ByteArray {
+        val command = """
+with open('$fileName','rb') as f:
+    while 1:
+          b=f.read(50)
+          if not b:break
+          print(b.hex())
+"""
+        val result = blindExecute(LONG_LONG_TIMEOUT, command).extractSingleResponse()
+        return result.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }.chunked(2).map { it.toInt(16).toByte() }
+            .toByteArray()
+    }
+
 }
