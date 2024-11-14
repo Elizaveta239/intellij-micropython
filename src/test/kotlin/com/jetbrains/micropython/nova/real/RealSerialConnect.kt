@@ -5,7 +5,7 @@ import com.jetbrains.micropython.nova.MpyCommForTest
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Disabled
 
-const val PORT_NAME="COM2"
+private const val PORT_NAME="COM2"
 
 @Disabled("Works only if a real board is at $PORT_NAME")
 class RealSerialConnect: RealConnectTestBase() {

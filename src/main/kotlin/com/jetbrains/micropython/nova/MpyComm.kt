@@ -349,7 +349,7 @@ except OSError as e:
         this.connectionParameters = parameters
     }
 
-    fun dataReceived(s: String) {
+    open fun dataReceived(s: String) {
         when (state) {
             State.TTY_DETACHED, State.CONNECTING -> offTtyBuffer.append(s)
             else -> {
