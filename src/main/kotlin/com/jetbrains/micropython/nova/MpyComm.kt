@@ -15,6 +15,8 @@ import java.io.IOException
 import java.io.PipedReader
 import java.io.PipedWriter
 import java.nio.charset.StandardCharsets
+import java.util.*
+import kotlin.Throws
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.properties.Delegates
 
@@ -85,7 +87,7 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
     @Throws(IOException::class, CancellationException::class, TimeoutCancellationException::class)
     suspend fun upload(fullName: @NonNls String, content: ByteArray) {
         checkConnected()
-        val commands = mutableListOf<String>("import os, errno")
+        val commands = mutableListOf<String>("import os,errno")
         var slashIdx = 0
         while (slashIdx >= 0) {
             slashIdx = fullName.indexOf('/', slashIdx + 1)
@@ -98,7 +100,32 @@ except OSError as e:
                 )
             }
         }
-        commands.add("___f=open('$fullName','wb')")
+        if (content.size > 100 && content.count { b -> b in 32..127 } < content.size / 2) {
+            commands.addAll(binUpload(fullName, content))
+        } else {
+            commands.addAll(txtUpload(fullName, content))
+        }
+
+        commands.add("print(os.stat('$fullName'))")
+
+
+        val result = webSocketMutex.withLock {
+            doBlindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+        }
+        val error = result.mapNotNull { Strings.nullize(it.stderr) }.joinToString(separator = "\n", limit = 1000)
+        if (error.isNotEmpty()) {
+            throw IOException(error)
+        }
+        val fileData = result.last().stdout.split('(', ')', ',').map { it.trim().toIntOrNull() }
+        if (fileData.getOrNull(7) != content.size) {
+            throw IOException("Expected size is ${content.size}, uploaded ${fileData[5]}")
+        } else if (fileData.getOrNull(1) != 32768) {
+            throw IOException("Expected type is 32768, uploaded ${fileData[1]}")
+        }
+    }
+
+    private fun txtUpload(fullName: @NonNls String, content: ByteArray): List<String> {
+        val commands = mutableListOf("__f=open('$fullName','wb')")
         val chunk = StringBuilder()
         val maxDataChunk = 220
         var contentIdx = 0
@@ -117,26 +144,32 @@ except OSError as e:
                     }
                 )
             }
-            commands.add("___f.write(b'$chunk')")
+            commands.add("__f.write(b'$chunk')")
         }
-        commands.add("___f.close()")
-        commands.add("del(___f)")
-        commands.add("print(os.stat('$fullName'))")
+        commands.add("__f.close()")
+        commands.add("del(__f)")
+        return commands
+    }
 
-
-        val result = webSocketMutex.withLock {
-            doBlindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+    private fun binUpload(fullName: @NonNls String, content: ByteArray): List<String> {
+        val commands = mutableListOf(
+            "import ubinascii",
+            "__e=lambda b:__f.write(ubinascii.a2b_base64(b))",
+            "__f=open('$fullName','wb')"
+        )
+        val maxDataChunk = 120
+        assert(maxDataChunk % 4 == 0)
+        var contentIdx = 0
+        val encoder = Base64.getEncoder()
+        while (contentIdx < content.size) {
+            val len = maxDataChunk.coerceAtMost(content.size - contentIdx)
+            val chunk = encoder.encodeToString(content.copyOfRange(contentIdx, contentIdx + len))
+            contentIdx += len
+            commands.add("__e('$chunk')")
         }
-        val error = result.mapNotNull { Strings.nullize(it.stderr) }.joinToString(separator = "\n", limit = 1000)
-        if (error.isNotEmpty()) {
-            throw IOException(error)
-        }
-        val fileData = result.last().stdout.split('(', ')', ',').map { it.trim().toIntOrNull() }
-        if (fileData.getOrNull(7) != content.size) {
-            throw IOException("Expected size is ${content.size}, uploaded ${fileData[5]}")
-        } else if (fileData.getOrNull(1) != 32768) {
-            throw IOException("Expected type is 32768, uploaded ${fileData[1]}")
-        }
+        commands.add("__f.close()")
+        commands.add("del __f,__e")
+        return commands
     }
 
     @Throws(IOException::class)
