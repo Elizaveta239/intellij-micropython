@@ -11,6 +11,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.Toggleable
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Editor
@@ -24,6 +26,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.modules
+import com.intellij.openapi.ui.InputValidator
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.NlsContexts
@@ -32,6 +35,8 @@ import com.intellij.openapi.vfs.readText
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.testFramework.LightVirtualFile
+import com.intellij.util.PathUtilRt
+import com.intellij.util.PathUtilRt.Platform
 import com.intellij.util.asSafely
 import com.jetbrains.micropython.run.MicroPythonRunConfiguration
 import com.jetbrains.micropython.settings.MicroPythonProjectConfigurable
@@ -42,7 +47,6 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import kotlin.coroutines.cancellation.CancellationException
-
 
 fun fileSystemWidget(project: Project?): FileSystemWidget? {
     return ToolWindowManager.getInstance(project ?: return null)
@@ -65,6 +69,7 @@ abstract class ReplAction(text: String, private val connectionRequired: Boolean)
     }
 
     protected fun fileSystemWidget(e: AnActionEvent): FileSystemWidget? = fileSystemWidget(e.project)
+
     fun enableIfConnected(e: AnActionEvent) {
         if (fileSystemWidget(e)?.state != State.CONNECTED) {
             e.presentation.isEnabled = false
@@ -232,12 +237,12 @@ class DeleteFiles : ReplAction("Delete Item(s)", true) {
             return
         }
         val selectedFiles = fileSystemWidget(e)?.selectedFiles()
-        e.presentation.isEnabled = selectedFiles?.any { it.fullName != "/" } == true
+        e.presentation.isEnabled = selectedFiles?.any { !it.isRoot } == true
     }
 }
 
 class InstantRun : DumbAwareAction() {
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+    override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
         e.presentation.isEnabled = e.getData(CommonDataKeys.VIRTUAL_FILE) != null
@@ -374,5 +379,50 @@ class SoftResetAction: ReplAction("Reset", true) {
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
         fileSystemWidget.reset()
         fileSystemWidget.clearTerminalIfNeeded()
+    }
+}
+
+class CreateDeviceFolderAction : ReplAction("New folder", true) {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+    private fun selectedFolder(fileSystemWidget: FileSystemWidget): DirNode? =
+        fileSystemWidget.selectedFiles().firstOrNull().asSafely<DirNode>()
+
+    override fun update(e: AnActionEvent) {
+        val fileSystemWidget = fileSystemWidget(e)
+        if (fileSystemWidget?.state != State.CONNECTED || selectedFolder(fileSystemWidget) == null) {
+            e.presentation.isEnabled = false
+        }
+    }
+
+    override val actionDescription: @NlsContexts.DialogMessage String = "New folder..."
+
+    override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
+
+        val parent = selectedFolder(fileSystemWidget) ?: return
+
+        val validator = object : InputValidator {
+            override fun checkInput(inputString: String): Boolean {
+                if (!PathUtilRt.isValidFileName(inputString, Platform.UNIX, true, Charsets.US_ASCII)) return false
+                return parent.children().asSequence().none { it.asSafely<FileSystemNode>()?.name == inputString }
+            }
+
+            override fun canClose(inputString: String): Boolean = checkInput(inputString)
+        }
+
+        val newName = withContext(Dispatchers.EDT) {
+            Messages.showInputDialog(
+                fileSystemWidget.project,
+                "Name:", "Create New Folder", AllIcons.Actions.AddDirectory,
+                "new_folder", validator
+            )
+        }
+
+        if (!newName.isNullOrBlank()) {
+            fileSystemWidget.blindExecute(TIMEOUT, "import os; os.mkdir('${parent.fullName}/$newName')")
+                .extractSingleResponse()
+            fileSystemWidget.refresh()
+        }
+
     }
 }

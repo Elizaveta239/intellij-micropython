@@ -78,11 +78,13 @@
             </action>
             <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect"
                     icon="/icons/connectActive.svg"/>
-            <action id="micropython.repl.Refresh" class="com.jetbrains.micropython.nova.Refresh"
+            <action id="micropython.fs.Refresh" class="com.jetbrains.micropython.nova.Refresh"
                     icon="AllIcons.Actions.StopRefresh">
                 <keyboard-shortcut first-keystroke="control R" keymap="$default"/>
             </action>
-            <action id="micropython.repl.Delete" class="com.jetbrains.micropython.nova.DeleteFiles"
+            <action id="micropython.fs.CreateFolder" class="com.jetbrains.micropython.nova.CreateDeviceFolderAction"
+                    icon="AllIcons.Actions.AddDirectory"/>
+            <action id="micropython.fs.Delete" class="com.jetbrains.micropython.nova.DeleteFiles"
                     use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
             <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction"
                     icon="AllIcons.General.GearPlain"/>
@@ -91,9 +93,10 @@
         <group id="micropython.repl.FSContextMenu">
             <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile"
                     icon="AllIcons.Actions.MenuOpen"/>
-            <reference ref="micropython.repl.Refresh"/>
+            <reference ref="micropython.fs.Refresh"/>
             <separator/>
-            <reference ref="micropython.repl.Delete"/>
+            <reference ref="micropython.fs.CreateFolder"/>
+            <reference ref="micropython.fs.Delete"/>
         </group>
 
         <group id="micropython.repl.ReplToolbar">
