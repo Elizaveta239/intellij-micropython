@@ -54,7 +54,7 @@ class ___FSScan(object):
 
     def fld(self, name):
         for r in os.ilistdir(name):
-            print(r[1],r[3] if len(r) > 3 else -1,name + r[0])
+            print(r[1],r[3] if len(r) > 3 else -1,name + r[0],sep='&')
             if r[1] & 0x4000:
                 self.fld(name + r[0]+ "/")
 
@@ -130,7 +130,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
             actionManager.tryToExecute(action, null, tree, TOOLWINDOW_CONTENT, true)
         }
         val popupActions = actionManager.getAction("micropython.repl.FSContextMenu") as ActionGroup
-        PopupHandler.installFollowingSelectionTreePopup(tree, popupActions, ActionPlaces.UNKNOWN)
+        PopupHandler.installFollowingSelectionTreePopup(tree, popupActions, ActionPlaces.POPUP)
         TreeUtil.installActions(tree)
 
         val actions = actionManager.getAction("micropython.repl.FSToolbar") as ActionGroup
@@ -161,7 +161,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         val newModel = newTreeModel()
         val dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
         dirList.lines().filter { it.isNotBlank() }.forEach { line ->
-            line.split(" ").let { fields ->
+            line.split('&').let { fields ->
                 val flags = fields[0].toInt()
                 val len = fields[1].toInt()
                 val fullName = fields[2]
