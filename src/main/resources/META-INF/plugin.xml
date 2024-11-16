@@ -76,7 +76,7 @@
                     icon="/icons/connectActive.svg">
                 <keyboard-shortcut first-keystroke="control CLOSE_BRACKET" keymap="$default"/>
             </action>
-            <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.Connect"
+            <action id="micropython.repl.Connect" class="com.jetbrains.micropython.nova.ConnectAction"
                     icon="/icons/connectActive.svg"/>
             <action id="micropython.fs.Refresh" class="com.jetbrains.micropython.nova.Refresh"
                     icon="AllIcons.Actions.StopRefresh">
@@ -84,6 +84,8 @@
             </action>
             <action id="micropython.fs.CreateFolder" class="com.jetbrains.micropython.nova.CreateDeviceFolderAction"
                     icon="AllIcons.Actions.AddDirectory"/>
+            <action id="micropython.fs.Download" class="com.jetbrains.micropython.nova.DownloadFromDeviceAction"
+                    icon="AllIcons.Actions.Download"/>
             <action id="micropython.fs.Delete" class="com.jetbrains.micropython.nova.DeleteFiles"
                     use-shortcut-of="$Delete" icon="AllIcons.Actions.GC"/>
             <action id="micropython.repl.ConnectionParameters" class="com.jetbrains.micropython.nova.OpenSettingsAction"
@@ -94,6 +96,7 @@
             <action class="com.jetbrains.micropython.nova.OpenMpyFile" id="micropython.repl.OpenFile"
                     icon="AllIcons.Actions.MenuOpen"/>
             <reference ref="micropython.fs.Refresh"/>
+            <reference ref="micropython.fs.Download"/>
             <separator/>
             <reference ref="micropython.fs.CreateFolder"/>
             <reference ref="micropython.fs.Delete"/>

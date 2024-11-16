@@ -16,7 +16,6 @@ import java.io.PipedReader
 import java.io.PipedWriter
 import java.nio.charset.StandardCharsets
 import java.util.*
-import kotlin.Throws
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.properties.Delegates
 
@@ -153,7 +152,7 @@ except OSError as e:
 
     private fun binUpload(fullName: @NonNls String, content: ByteArray): List<String> {
         val commands = mutableListOf(
-            "import ubinascii",
+            "import binascii",
             "__e=lambda b:__f.write(ubinascii.a2b_base64(b))",
             "__f=open('$fullName','wb')"
         )

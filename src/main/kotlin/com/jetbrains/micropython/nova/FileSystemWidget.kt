@@ -249,8 +249,8 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         comm.upload(relativeName, contentsToByteArray)
 
     @Throws(IOException::class)
-    suspend fun download(relativeName: @NonNls String): ByteArray =
-        comm.download(relativeName)
+    suspend fun download(deviceFileName: @NonNls String): ByteArray =
+        comm.download(deviceFileName)
 
     @Throws(IOException::class)
     suspend fun instantRun(code: @NonNls String, showCode: Boolean) {
