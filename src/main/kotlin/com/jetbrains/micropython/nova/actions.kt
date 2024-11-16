@@ -251,6 +251,7 @@ class InstantRun : DumbAwareAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+        FileDocumentManager.getInstance().saveAllDocuments()
         val code = e.getData(CommonDataKeys.VIRTUAL_FILE)?.readText() ?: return
         performReplAction(project,true,"Run code") {
             it.instantRun(code, false)
