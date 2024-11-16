@@ -1,5 +1,4 @@
-*.iml
-.idea/
+/.idea/
 !/.idea/runConfigurations/
 .gradle/
 build/

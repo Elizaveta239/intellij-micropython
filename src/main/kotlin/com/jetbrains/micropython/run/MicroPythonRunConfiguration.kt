@@ -25,21 +25,21 @@ import com.intellij.execution.configurations.RunProfileState
 import com.intellij.execution.configurations.RuntimeConfigurationError
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.facet.ui.ValidationResult
-import com.intellij.openapi.actionSystem.LangDataKeys
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.options.ShowSettingsUtil
+import com.intellij.openapi.progress.checkCanceled
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.guessModuleDir
 import com.intellij.openapi.project.guessProjectDir
+import com.intellij.openapi.project.modules
 import com.intellij.openapi.project.rootManager
-import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ui.configuration.ProjectSettingsService
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.isFile
 import com.intellij.platform.util.progress.reportSequentialProgress
 import com.intellij.project.stateStore
 import com.intellij.util.PathUtil
@@ -49,8 +49,11 @@ import com.jetbrains.micropython.nova.performReplAction
 import com.jetbrains.micropython.settings.MicroPythonProjectConfigurable
 import com.jetbrains.micropython.settings.microPythonFacet
 import com.jetbrains.python.sdk.PythonSdkUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jdom.Element
 import java.nio.file.Path
+
 
 /**
  * @author Mikhail Golubev
@@ -69,11 +72,14 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
 
   override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
-    val uploadPath = if (!path.isEmpty()) path else  project.basePath ?: return null
-    val toUpload = listOf(VfsUtil.findFile(Path.of(uploadPath), true) ?: return null)
-    val currentModule = environment.dataContext?.getData(LangDataKeys.MODULE)
-
-    if (uploadMultipleFiles(project, currentModule, toUpload)) {
+    val success: Boolean
+    if (path.isBlank()) {
+      success = uploadProject(project)
+    } else {
+      val toUpload = VfsUtil.findFile(Path.of(project.basePath ?: return null), true) ?: return null
+      success = uploadFileOrFolder(project, toUpload)
+    }
+    if (success) {
       val fileSystemWidget = fileSystemWidget(project)
       if(resetOnSuccess)fileSystemWidget?.reset()
       if(runReplOnSuccess) fileSystemWidget?.activateRepl()
@@ -145,56 +151,74 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     }
 
   companion object {
-    private fun getClosestRoot(file: VirtualFile, roots: Set<VirtualFile>, module: Module): VirtualFile? {
-      var parent: VirtualFile? = file
-      while (parent != null) {
-        if (parent in roots) {
-          break
-        }
-        parent = parent.parent
-      }
-      return parent ?: module.guessModuleDir()
+
+    private fun VirtualFile.leadingDot() = this.name.startsWith(".")
+
+    fun uploadFileOrFolder(project: Project, toUpload: VirtualFile): Boolean {
+      FileDocumentManager.getInstance().saveAllDocuments()
+      performUpload(project,listOf(toUpload.name to toUpload))
+      return false
     }
 
-    fun uploadMultipleFiles(project: Project, currentModule: Module?, toUpload: List<VirtualFile>): Boolean {
-      FileDocumentManager.getInstance().saveAllDocuments()
-      performReplAction(project, true, "Upload files") {fileSystemWidget ->
-        val filesToUpload = mutableListOf<Pair<String, VirtualFile>>()
-        for (uploadFile in toUpload) {
-          val roots = mutableSetOf<VirtualFile>()
-          val module =
-            currentModule ?: ModuleUtil.findModuleForFile(uploadFile, project) ?: continue
-          val rootManager = module.rootManager
-          roots.addAll(rootManager.sourceRoots)
-          if (roots.isEmpty()) {
-            roots.addAll(rootManager.contentRoots)
+    private fun collectUploadables(project: Project): Set<VirtualFile> {
+      return project.modules.flatMap { module ->
+        val moduleRoots = module.rootManager
+          .contentEntries
+          .flatMap { it.sourceFolders.asSequence() }
+          .mapNotNull { if (!it.isTestSource) it.file else null }
+          .filter { !it.leadingDot() }
+          .toMutableList()
+
+        if (moduleRoots.isEmpty()) {
+          module.rootManager.contentRoots.filterTo(moduleRoots) { it.isDirectory && !it.leadingDot() }
+        }
+        moduleRoots
+      }.toSet()
+    }
+
+    private fun collectExcluded(project: Project): Set<VirtualFile> {
+      val ideaDir = project.stateStore.directoryStorePath?.let { VfsUtil.findFile(it, false) }
+      val excludes = if (ideaDir == null) mutableSetOf<VirtualFile>() else mutableSetOf(ideaDir)
+      project.modules.forEach { module ->
+        PythonSdkUtil.findPythonSdk(module)?.homeDirectory?.apply { excludes.add(this) }
+        module.rootManager.contentEntries.forEach { entry ->
+          excludes.addAll(entry.excludeFolderFiles)
+        }
+      }
+      return excludes
+    }
+
+    fun uploadProject(project: Project): Boolean {
+      val filesToUpload = collectUploadables(project).map { file -> "" to file }.toMutableList()
+      return performUpload(project, filesToUpload)
+    }
+
+    private fun performUpload(project: Project, filesToUpload: List<Pair<String, VirtualFile>>): Boolean {
+      val flatListToUpload = filesToUpload.toMutableList()
+      val ignorableFolders = collectExcluded(project)
+      performReplAction(project, true, "Upload files") { fileSystemWidget ->
+        withContext(Dispatchers.EDT) {
+          FileDocumentManager.getInstance().saveAllDocuments()
+        }
+        val fileTypeRegistry = FileTypeRegistry.getInstance()
+        var index = 0
+        while (index < flatListToUpload.size) {
+          val file = flatListToUpload[index].second
+          if (!file.isValid || file.leadingDot() || fileTypeRegistry.isFileIgnored(file)) {
+            flatListToUpload.removeAt(index)
+          } else if (ignorableFolders.any { VfsUtil.isAncestor(it, file, true) }) {
+            flatListToUpload.removeAt(index)
+          } else if (file.isDirectory) {
+            file.children.forEach {  flatListToUpload.add("${flatListToUpload[index].first}/${it.name}" to it) }
+            flatListToUpload.removeAt(index)
+          } else {
+            index++
           }
-
-          val pythonPath = PythonSdkUtil.findPythonSdk(module)?.homeDirectory
-          val ideaDir = project.stateStore.directoryStorePath?.let { VfsUtil.findFile(it, false) }
-          val excludeRoots = listOfNotNull(
-            pythonPath,
-            ideaDir,
-            *ModuleRootManager.getInstance(module).excludeRoots
-          )
-
-
-          VfsUtil.processFileRecursivelyWithoutIgnored(uploadFile) { file ->
-            if (
-              file.isFile && file.isValid &&
-              excludeRoots.none { VfsUtil.isAncestor(it, file, false) }
-            ) {
-              getClosestRoot(file, roots, module)?.apply {
-                val shortPath = VfsUtil.getRelativePath(file, this)
-                if (shortPath != null) filesToUpload.add(shortPath to file)//todo low priority optimize
-              }
-            }
-            true
-          }
+          checkCanceled()
         }
         //todo low priority create empty folders
         reportSequentialProgress(filesToUpload.size) { reporter ->
-          filesToUpload.forEach { (path, file) ->
+          flatListToUpload.forEach { (path, file) ->
             reporter.itemStep(path)
             fileSystemWidget.upload(path, file.contentsToByteArray())
           }

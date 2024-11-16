@@ -1,0 +1,6 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Flash project" type="MicroPythonConfigurationType" factoryName="MicroPython" path="" run-repl-on-success="no" reset-on-success="no">
+    <module name="layout-a" />
+    <method v="2" />
+  </configuration>
+</component>

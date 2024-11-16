@@ -265,18 +265,23 @@ open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device"
     override fun update(e: AnActionEvent) {
         val project = e.project
         val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        var enabled = false
-        if (project != null && file?.isInLocalFileSystem == true) {
-            enabled = ModuleUtil.findModuleForFile(file, project)?.microPythonFacet != null
+        if (project != null
+            && file?.isInLocalFileSystem == true
+            && ModuleUtil.findModuleForFile(file, project)?.microPythonFacet != null
+        ) {
+            e.presentation.text =
+                if (file.isDirectory) "Upload Directory to Micropython device" else "Upload File to Micropython device"
+        } else {
+            e.presentation.isEnabledAndVisible = false
         }
-        e.presentation.isEnabledAndVisible = enabled
     }
 
     override fun actionPerformed(e: AnActionEvent) {
             FileDocumentManager.getInstance().saveAllDocuments()
-        val files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
-        if (files.isNullOrEmpty()) return
-        MicroPythonRunConfiguration.uploadMultipleFiles(e.project ?: return, null, files.toList())
+        val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
+        if (file != null) {
+            MicroPythonRunConfiguration.uploadFileOrFolder(e.project ?: return, file)
+        }
     }
 }
 
