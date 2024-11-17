@@ -217,7 +217,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
           checkCanceled()
         }
         //todo low priority create empty folders
-        reportSequentialProgress(filesToUpload.size) { reporter ->
+        reportSequentialProgress(flatListToUpload.size) { reporter ->
           flatListToUpload.forEach { (path, file) ->
             reporter.itemStep(path)
             fileSystemWidget.upload(path, file.contentsToByteArray())

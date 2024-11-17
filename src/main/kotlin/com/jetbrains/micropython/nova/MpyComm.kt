@@ -153,7 +153,7 @@ except OSError as e:
     private fun binUpload(fullName: @NonNls String, content: ByteArray): List<String> {
         val commands = mutableListOf(
             "import binascii",
-            "__e=lambda b:__f.write(ubinascii.a2b_base64(b))",
+            "__e=lambda b:__f.write(binascii.a2b_base64(b))",
             "__f=open('$fullName','wb')"
         )
         val maxDataChunk = 120

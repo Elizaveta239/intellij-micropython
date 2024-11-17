@@ -15,13 +15,21 @@ import com.intellij.platform.util.progress.reportSequentialProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DownloadFromDeviceAction : ReplAction("Download...", true) {
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+class DownloadFromDeviceAction : ReplAction("Download File or Folder...", true) {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
         val fileSystemWidget = fileSystemWidget(e)
-        if (fileSystemWidget?.state != State.CONNECTED || fileSystemWidget.selectedFiles().isEmpty()) {
+        if (fileSystemWidget?.state != State.CONNECTED) {
             e.presentation.isEnabled = false
+        } else {
+            val selectedFile = fileSystemWidget.selectedFiles().firstOrNull()
+            when {
+                selectedFile == null -> with(e.presentation) { text = "Download File or Folder"; isEnabled = false }
+                selectedFile.isRoot -> e.presentation.text = "Download Device Content"
+                selectedFile is DirNode -> e.presentation.text = "Download Folder '${selectedFile.name}'"
+                else -> e.presentation.text = "Download File '${selectedFile.name}'..."
+            }
         }
     }
 

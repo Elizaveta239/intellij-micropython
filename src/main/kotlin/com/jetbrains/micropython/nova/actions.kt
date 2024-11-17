@@ -313,7 +313,7 @@ class SoftResetAction: ReplAction("Reset", true) {
     }
 }
 
-class CreateDeviceFolderAction : ReplAction("New folder", true) {
+class CreateDeviceFolderAction : ReplAction("New Folder", true) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     private fun selectedFolder(fileSystemWidget: FileSystemWidget): DirNode? =
@@ -326,7 +326,7 @@ class CreateDeviceFolderAction : ReplAction("New folder", true) {
         }
     }
 
-    override val actionDescription: @NlsContexts.DialogMessage String = "New folder..."
+    override val actionDescription: @NlsContexts.DialogMessage String = "New folder is created..."
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
 
