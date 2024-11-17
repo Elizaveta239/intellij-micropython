@@ -37,6 +37,7 @@ import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jetbrains.micropython.settings.DEFAULT_WEBREPL_URL
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -147,7 +148,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 State.DISCONNECTING,
                 State.DISCONNECTED,
                 State.CONNECTING -> {
-                    currentThreadCoroutineScope().launch(Dispatchers.EDT) {
+                    currentThreadCoroutineScope().launch(Dispatchers.EDT, start = CoroutineStart.ATOMIC) {
                         tree.model = null
                     }
                 }

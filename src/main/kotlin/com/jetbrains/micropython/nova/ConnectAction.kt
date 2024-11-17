@@ -78,8 +78,11 @@ suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
         if (connectionParameters != null) {
             fileSystemWidget.setConnectionParams(connectionParameters)
             fileSystemWidget.connect()
-            fileSystemWidget.refresh()
-            ActivityTracker.getInstance().inc()
+            try {
+                fileSystemWidget.refresh()
+            } finally {
+                ActivityTracker.getInstance().inc()
+            }
         }
     }
 }
