@@ -66,7 +66,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
   var resetOnSuccess: Boolean = true
 
   override fun getValidModules() =
-          allModules.filter { it.microPythonFacet != null }.toMutableList()
+    allModules.filter { it.microPythonFacet != null }.toMutableList()
 
   override fun getConfigurationEditor() = MicroPythonRunConfigurationEditor(this)
 
@@ -76,7 +76,8 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     if (path.isBlank()) {
       success = uploadProject(project)
     } else {
-      val toUpload = VfsUtil.findFile(Path.of(project.basePath ?: return null), true) ?: return null
+      // Instead of defaulting to project path, let's use the actual path configured by the user
+      val toUpload = StandardFileSystems.local().findFileByPath(path) ?: return null
       success = uploadFileOrFolder(project, toUpload)
     }
     if (success) {
@@ -104,8 +105,8 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       }
     }
     val facet = m.microPythonFacet ?: throw RuntimeConfigurationError(
-            "MicroPython support is not enabled for selected module in IDE settings",
-            showSettings
+      "MicroPython support is not enabled for selected module in IDE settings",
+      showSettings
     )
     val validationResult = facet.checkValid()
     if (validationResult != ValidationResult.OK) {
@@ -156,7 +157,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
     fun uploadFileOrFolder(project: Project, toUpload: VirtualFile): Boolean {
       FileDocumentManager.getInstance().saveAllDocuments()
-      performUpload(project,listOf(toUpload.name to toUpload))
+      performUpload(project,listOf(toUpload.name to toUpload), toUpload)
       return false
     }
 
@@ -190,12 +191,43 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
     fun uploadProject(project: Project): Boolean {
       val filesToUpload = collectUploadables(project).map { file -> "" to file }.toMutableList()
-      return performUpload(project, filesToUpload)
+      return performUpload(project, filesToUpload, null) // If null whole project is uploaded
     }
 
-    private fun performUpload(project: Project, filesToUpload: List<Pair<String, VirtualFile>>): Boolean {
+    private fun performUpload(project: Project, filesToUpload: List<Pair<String, VirtualFile>>, uploadRoot: VirtualFile?): Boolean {
       val flatListToUpload = filesToUpload.toMutableList()
       val ignorableFolders = collectExcluded(project)
+
+      // Save test folders
+      val testSourceFolders = project.modules.flatMap { module ->
+        module.rootManager.contentEntries
+          .flatMap { entry -> entry.sourceFolders.toList() }
+          .filter { sourceFolder -> sourceFolder.isTestSource }
+          .mapNotNull { it.file }
+      }.toSet()
+
+      // Determine if we are uploading a test folder specifically
+      val isTestSourceUpload = uploadRoot?.let { root ->
+        testSourceFolders.any { testSource ->
+          VfsUtil.isAncestor(testSource, root, true) ||
+                  testSourceFolders.any { it == root }
+        }
+      } ?: false
+
+      // Save source folders
+      val sourceRoots = project.modules.flatMap { module ->
+        module.rootManager.contentEntries
+          .flatMap { entry -> entry.sourceFolders.toList() }
+          .filter { sourceFolder ->
+            !sourceFolder.isTestSource &&
+                    sourceFolder.file?.let { !it.leadingDot() } ?: false &&
+                    (uploadRoot == null ||
+                            sourceFolder.file?.let { VfsUtil.isAncestor(uploadRoot, it, true) } ?: false ||
+                            sourceFolder.file?.let { VfsUtil.isAncestor(it, uploadRoot, true) } ?: false)
+          }
+          .mapNotNull { it.file }
+      }.toSet()
+
       performReplAction(project, true, "Upload files") { fileSystemWidget ->
         withContext(Dispatchers.EDT) {
           FileDocumentManager.getInstance().saveAllDocuments()
@@ -203,20 +235,78 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
         val fileTypeRegistry = FileTypeRegistry.getInstance()
         var index = 0
         while (index < flatListToUpload.size) {
-          val file = flatListToUpload[index].second
-          if (!file.isValid || file.leadingDot() || fileTypeRegistry.isFileIgnored(file)) {
-            flatListToUpload.removeAt(index)
-          } else if (ignorableFolders.any { VfsUtil.isAncestor(it, file, true) }) {
+          val (currentPath, file) = flatListToUpload[index]
+
+          // Check if file is inside of a test folder
+          val isInTestSource = testSourceFolders.any { testSource ->
+            VfsUtil.isAncestor(testSource, file, false)
+          }
+
+          // Check if the file is a source root itself
+          val isSourceRoot = sourceRoots.any { it == file }
+
+          if (!file.isValid ||
+            file.leadingDot() ||
+            fileTypeRegistry.isFileIgnored(file) ||
+            (!isTestSourceUpload && isInTestSource) ||
+            ignorableFolders.any { VfsUtil.isAncestor(it, file, true)} ||
+            // For project-wide upload, exclude source roots but include their contents
+            (uploadRoot == null && isSourceRoot)
+          ) {
             flatListToUpload.removeAt(index)
           } else if (file.isDirectory) {
-            file.children.forEach {  flatListToUpload.add("${flatListToUpload[index].first}/${it.name}" to it) }
+            val sourceRoot = sourceRoots.find { it == file } // Direct source root match
+
+            if (sourceRoot != null) {
+              // This is a source root - handle all descendants with paths relative to the source root
+              file.children.forEach { child ->
+                if (isTestSourceUpload || !testSourceFolders.any { VfsUtil.isAncestor(it, child, false) }) {
+                  val relativePath = VfsUtil.getRelativePath(child, sourceRoot) ?: child.name
+                  flatListToUpload.add(relativePath to child)
+                }
+              }
+            } else {
+              // Check if this directory is inside a source root
+              val parentSourceRoot = sourceRoots.find { VfsUtil.isAncestor(it, file, false) }
+              file.children.forEach { child ->
+                if (isTestSourceUpload || !testSourceFolders.any { VfsUtil.isAncestor(it, child, false) }) {
+                  val relativePath = when {
+                    parentSourceRoot != null -> {
+                      // If inside source root, path should be relative to source root
+                      VfsUtil.getRelativePath(child, parentSourceRoot) ?: child.name
+                    }
+                    uploadRoot != null && VfsUtil.isAncestor(uploadRoot, child, true) -> {
+                      VfsUtil.getRelativePath(child, uploadRoot) ?: child.name
+                    }
+                    currentPath.isEmpty() -> child.name
+                    else -> "$currentPath/${child.name}"
+                  }
+                  flatListToUpload.add(relativePath to child)
+                }
+              }
+            }
             flatListToUpload.removeAt(index)
           } else {
+            val sourceRoot = sourceRoots.find { VfsUtil.isAncestor(it, file, false) }
+            // Also consider test source roots when calculating relative paths
+            val testSourceRoot = if (isTestSourceUpload) {
+              testSourceFolders.find { VfsUtil.isAncestor(it, file, false) }
+            } else null
+
+            if ((sourceRoot != null || testSourceRoot != null) && uploadRoot == null) {
+              val relativeToSource = when {
+                testSourceRoot != null -> VfsUtil.getRelativePath(file, testSourceRoot)
+                else -> VfsUtil.getRelativePath(file, sourceRoot!!)
+              }
+              if (relativeToSource != null) {
+                flatListToUpload[index] = relativeToSource to file
+              }
+            }
             index++
           }
           checkCanceled()
         }
-        //todo low priority create empty folders
+
         reportSequentialProgress(flatListToUpload.size) { reporter ->
           flatListToUpload.forEach { (path, file) ->
             reporter.itemStep(path)
@@ -227,6 +317,5 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       }
       return true
     }
-
   }
 }
