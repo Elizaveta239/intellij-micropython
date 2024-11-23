@@ -218,7 +218,10 @@ except OSError as e:
                     }
                 }
                 return result
-            } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        }
+        catch (e: Throwable) {
                 state = State.DISCONNECTED
                 client?.close()
                 client = null
