@@ -52,8 +52,6 @@ import com.jetbrains.python.sdk.PythonSdkUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jdom.Element
-import java.nio.file.Path
-
 
 /**
  * @author Mikhail Golubev
@@ -73,10 +71,13 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
   override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
     val success: Boolean
-    if (path.isBlank()) {
+    val projectDir = project.guessProjectDir()
+    val projectPath = projectDir?.path
+
+    if (path.isBlank() || (projectPath != null && path == projectPath)) {
       success = uploadProject(project)
     } else {
-      // Instead of defaulting to project path, let's use the actual path configured by the user
+      // Use the actual path configured by the user
       val toUpload = StandardFileSystems.local().findFileByPath(path) ?: return null
       success = uploadFileOrFolder(project, toUpload)
     }
@@ -157,8 +158,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
     fun uploadFileOrFolder(project: Project, toUpload: VirtualFile): Boolean {
       FileDocumentManager.getInstance().saveAllDocuments()
-      performUpload(project,listOf(toUpload.name to toUpload), toUpload)
-      return false
+      return performUpload(project,listOf(toUpload.name to toUpload), toUpload)
     }
 
     private fun collectUploadables(project: Project): Set<VirtualFile> {
@@ -245,13 +245,15 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
           // Check if the file is a source root itself
           val isSourceRoot = sourceRoots.any { it == file }
 
+          val isSourceRootsEmpty = sourceRoots.isEmpty()
+
           if (!file.isValid ||
             file.leadingDot() ||
             fileTypeRegistry.isFileIgnored(file) ||
             (!isTestSourceUpload && isInTestSource) ||
             ignorableFolders.any { VfsUtil.isAncestor(it, file, true)} ||
-            // For project-wide upload, exclude source roots but include their contents
-            (uploadRoot == null && isSourceRoot)
+            // Skip files not in source roots if source roots exist and we're uploading whole project
+            (uploadRoot == null && !isSourceRootsEmpty && !sourceRoots.any { VfsUtil.isAncestor(it, file, false) })
           ) {
             flatListToUpload.removeAt(index)
           } else if (file.isDirectory) {
