@@ -27,8 +27,8 @@ import javax.swing.JComponent
 
 class MicroPythonRunConfigurationEditor(config: MicroPythonRunConfiguration) : SettingsEditor<MicroPythonRunConfiguration>() {
   private val pathField = TextFieldWithBrowseButton()
-    private val resetOnSuccess = CheckBox("Reset on success", selected = true)
-    private val runReplOnSuccess = CheckBox("Open MicroPython REPL on success", selected = true)
+    private val resetOnSuccess = CheckBox("Reset on Success", selected = true)
+    private val runReplOnSuccess = CheckBox("Open MicroPython REPL on Success", selected = true)
 
     init {
         val descriptor = FileChooserDescriptor(true, true, false, false, false, false).withTitle("Select Path")

@@ -81,7 +81,7 @@ open class MpyWebSocketClient(private val comm: MpyComm) : Client {
                     time -= SHORT_DELAY.toInt()
                 }
                 if (!isConnected) {
-                    throw ConnectException("Webrepl connection failed")
+                    throw ConnectException("WebREPL connection failed")
                 }
             }
             withTimeout(TIMEOUT) {

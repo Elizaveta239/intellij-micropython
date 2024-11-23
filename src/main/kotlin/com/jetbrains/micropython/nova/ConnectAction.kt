@@ -40,7 +40,7 @@ suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
     if (facet.configuration.uart) {
         val portName = facet.configuration.portName
         if (portName.isBlank()) {
-            msg = "Port is not selected"
+            msg = "No port is selected"
             connectionParameters = null
         } else {
             connectionParameters = ConnectionParameters(portName)
@@ -63,7 +63,7 @@ suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
             val result = Messages.showIdeaMessageDialog(
                 fileSystemWidget.project,
                 msg,
-                "Cannot Connect",
+                "Can Not Connect",
                 arrayOf("OK", "Settings..."),
                 1,
                 AllIcons.General.ErrorDialog,

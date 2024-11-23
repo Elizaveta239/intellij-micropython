@@ -81,12 +81,12 @@ fun <T> performReplAction(
 ): T? {
     val fileSystemWidget = fileSystemWidget(project) ?: return null
     if (connectionRequired && fileSystemWidget.state != State.CONNECTED) {
-        if (!MessageDialogBuilder.yesNo("Device is not connected", "Connect now?").ask(project)) {
+        if (!MessageDialogBuilder.yesNo("No device is connected", "Connect now?").ask(project)) {
             return null
         }
     }
     var result: T? = null
-    runWithModalProgressBlocking(project, "Board data exchange...") {
+    runWithModalProgressBlocking(project, "Exchanging data with the board...") {
         var error: String? = null
         try {
             if (connectionRequired) {
@@ -259,7 +259,7 @@ class OpenMpyFile : ReplAction("Open file", true) {
     }
 }
 
-open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device") {
+open class UploadFile() : DumbAwareAction("Upload File(s) to MicroPython Device") {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
@@ -270,7 +270,7 @@ open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device"
             && ModuleUtil.findModuleForFile(file, project)?.microPythonFacet != null
         ) {
             e.presentation.text =
-                if (file.isDirectory) "Upload Directory to Micropython device" else "Upload File to Micropython device"
+                if (file.isDirectory) "Upload Directory to MicroPython Device" else "Upload File to MicroPython Device"
         } else {
             e.presentation.isEnabledAndVisible = false
         }
@@ -326,7 +326,7 @@ class CreateDeviceFolderAction : ReplAction("New Folder", true) {
         }
     }
 
-    override val actionDescription: @NlsContexts.DialogMessage String = "New folder is created..."
+    override val actionDescription: @NlsContexts.DialogMessage String = "New folder is being created..."
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
 

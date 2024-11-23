@@ -47,7 +47,7 @@ class DownloadFromDeviceAction : ReplAction("Download File or Folder...", true) 
                 if (destination?.children?.isNotEmpty() == true) {
                     if (Messages.showOkCancelDialog(
                             fileSystemWidget.project,
-                            "The destination folder is not empty.\nIt's content may be damaged.",
+                            "The destination folder is not empty.\nIts contents may be damaged.",
                             "Warning",
                             "Continue",
                             "Cancel",
