@@ -229,8 +229,21 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                     }
                 }
                 .toCollection(commands)
-            blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
-                .extractResponse()
+            try {
+                blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+                    .extractResponse()
+            } catch (e: IOException) {
+                if (e.message?.contains("ENOENT") != true) {
+                    throw e
+                }
+            } catch (e: CancellationException) {
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.EDT) {
+                        refresh()
+                    }
+                }
+                throw e
+            }
         }
     }
 
