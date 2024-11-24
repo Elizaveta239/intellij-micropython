@@ -63,7 +63,7 @@ suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
             val result = Messages.showIdeaMessageDialog(
                 fileSystemWidget.project,
                 msg,
-                "Can Not Connect",
+                "Cannot Connect",
                 arrayOf("OK", "Settings..."),
                 1,
                 AllIcons.General.ErrorDialog,
