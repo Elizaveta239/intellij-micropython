@@ -238,9 +238,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 }
             } catch (e: CancellationException) {
                 withContext(NonCancellable) {
-                    withContext(Dispatchers.EDT) {
-                        refresh()
-                    }
+                    refresh()
                 }
                 throw e
             }
@@ -261,9 +259,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
             comm.upload(relativeName, contentsToByteArray)
         } catch (e: CancellationException) {
             withContext(NonCancellable) {
-                withContext(Dispatchers.EDT) {
-                    refresh()
-                }
+                refresh()
             }
             throw e
         }
