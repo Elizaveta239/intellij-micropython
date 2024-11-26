@@ -170,8 +170,12 @@ class InstantRun : DumbAwareAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.getData(CommonDataKeys.VIRTUAL_FILE) != null
-
+        val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
+        val files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
+        e.presentation.isEnabled = file != null &&
+                !file.isDirectory &&
+                file.extension == "py" &&
+                files?.size == 1
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -277,7 +281,7 @@ open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device"
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-            FileDocumentManager.getInstance().saveAllDocuments()
+        FileDocumentManager.getInstance().saveAllDocuments()
         val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
         if (file != null) {
             MicroPythonRunConfiguration.uploadFileOrFolder(e.project ?: return, file)
