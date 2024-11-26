@@ -326,7 +326,7 @@ class CreateDeviceFolderAction : ReplAction("New Folder", true) {
         }
     }
 
-    override val actionDescription: @NlsContexts.DialogMessage String = "New folder is being created..."
+    override val actionDescription: @NlsContexts.DialogMessage String = "Creating new folder..."
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
 
