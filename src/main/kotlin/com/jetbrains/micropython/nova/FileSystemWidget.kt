@@ -103,7 +103,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     private fun newTreeModel() = DefaultTreeModel(DirNode("/", "/"), true)
 
     init {
-        tree.emptyText.appendText("Board is disconnected")
+        tree.emptyText.appendText("No board is connected")
         tree.emptyText.appendLine("Connect...", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) {
             performReplAction(project, false, "Connecting...") { doConnect(it) }
         }
@@ -206,15 +206,15 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 val fileName = fileSystemNodes[0].fullName
                 if (fileSystemNodes[0] is DirNode) {
                     title = "Delete folder $fileName"
-                    message = "Are you sure to delete the folder and it's subtree?\n\r The operation can't be undone!"
+                    message = "Are you sure you want to delete the folder and its subtree?\n\rThis operation cannot be undone!"
                 } else {
                     title = "Delete file $fileName"
-                    message = "Are you sure to delete the file?\n\r The operation can't be undone!"
+                    message = "Are you sure you want to delete this file?\n\rThis operation cannot be undone!"
                 }
             } else {
                 title = "Delete multiple objects"
                 message =
-                    "Are you sure to delete ${fileSystemNodes.size} items?\n\r The operation can't be undone!"
+                    "Are you sure you want to delete ${fileSystemNodes.size} items?\n\rThis operation cannot be undone!"
             }
 
             val sure = MessageDialogBuilder.yesNo(title, message).ask(project)

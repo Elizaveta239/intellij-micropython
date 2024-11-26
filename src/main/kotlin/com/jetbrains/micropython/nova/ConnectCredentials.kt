@@ -44,7 +44,7 @@ fun messageForBrokenUrl(url: String): @Nls String? {
     try {
         val uri = URI(url)
         if (uri.scheme !in arrayOf("ws", "wss")) {
-            return "URL format has to be ws://host:port or wss://host:port\n but was $url"
+            return "URL format has to be ws://host:port or wss://host:port\n but you have entered: $url"
         }
         return null
     } catch (_: URISyntaxException) {

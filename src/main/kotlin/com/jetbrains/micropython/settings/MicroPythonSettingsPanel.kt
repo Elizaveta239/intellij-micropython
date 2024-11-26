@@ -124,7 +124,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
                         }.layout(RowLayout.LABEL_ALIGNED)
                         row {
                             passwordField().bindText(parameters::password).label("Password: ")
-                                .comment("(4..9 symbols)")
+                                .comment("(4-9 symbols)")
                                 .columns(40)
                                 .validationInfo { field ->
                                     if (field.password.size !in PASSWORD_LENGTH) error("Allowed password length is $PASSWORD_LENGTH").withOKEnabled() else null

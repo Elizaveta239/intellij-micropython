@@ -61,7 +61,7 @@ class MicroPythonToolWindow : ToolWindowFactory, DumbAware {
 
 }
 
-class AutoClearAction : CheckboxAction("Auto Clear REPL", "Automatically clear REPL window board data exchange", null),
+class AutoClearAction : CheckboxAction("Auto Clear REPL", "Automatically clear REPL console on device reset/upload", null),
     DumbAware {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT

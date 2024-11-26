@@ -44,7 +44,7 @@ class MicroPythonModuleConfigurable(private val module: Module) : Configurable {
   }
 
   private val enabledCheckbox by lazy {
-    val checkBox = JCheckBox("Enable MicroPython support")
+    val checkBox = JCheckBox("Enable MicroPython Support")
     checkBox.addActionListener {
       update()
     }

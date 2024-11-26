@@ -92,7 +92,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
   override fun checkConfiguration() {
     super.checkConfiguration()
-    val m = module ?: throw RuntimeConfigurationError("Module for path is not found")
+    val m = module ?: throw RuntimeConfigurationError("Module for path was not found")
     val showSettings = Runnable {
       when {
         PlatformUtils.isPyCharm() ->
@@ -114,7 +114,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       }
       throw RuntimeConfigurationError(validationResult.errorMessage, runQuickFix)
     }
-    facet.pythonPath ?: throw RuntimeConfigurationError("Python interpreter is not found")
+    facet.pythonPath ?: throw RuntimeConfigurationError("Python interpreter was not found")
   }
 
   override fun suggestedName() = "Flash ${PathUtil.getFileName(path)}"
