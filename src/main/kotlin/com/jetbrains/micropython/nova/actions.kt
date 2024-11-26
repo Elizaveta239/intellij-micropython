@@ -263,18 +263,38 @@ class OpenMpyFile : ReplAction("Open file", true) {
     }
 }
 
-open class UploadFile() : DumbAwareAction("Upload File(s) to Micropython device") {
+open class UploadFile() : DumbAwareAction("Upload File(s) to MicroPython Device") {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val file = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        if (project != null
-            && file?.isInLocalFileSystem == true
-            && ModuleUtil.findModuleForFile(file, project)?.microPythonFacet != null
-        ) {
-            e.presentation.text =
-                if (file.isDirectory) "Upload Directory to Micropython device" else "Upload File to Micropython device"
+        val files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
+        if (project != null && files != null) {
+            var directoryCount = 0
+            var normalFileCount = 0
+
+            for (file in files.iterator()) {
+                if (file == null || !file.isInLocalFileSystem || ModuleUtil.findModuleForFile(file, project)?.microPythonFacet == null)
+                    return
+
+                if (file.isDirectory)
+                    directoryCount++
+                else
+                    normalFileCount++
+            }
+
+            if (normalFileCount == 1)
+                e.presentation.text = "Upload File to MicroPython Device"
+            else if (normalFileCount > 1)
+                e.presentation.text = "Upload Files to MicroPython Device"
+            else if (directoryCount == 1)
+                e.presentation.text = "Upload Directory to MicroPython Device"
+            else if (directoryCount > 1)
+                e.presentation.text = "Upload Directories to MicroPython Device"
+            else {
+                e.presentation.text = "Upload File(s) to MicroPython Device"
+                e.presentation.isEnabled = false
+            }
         } else {
             e.presentation.isEnabledAndVisible = false
         }
