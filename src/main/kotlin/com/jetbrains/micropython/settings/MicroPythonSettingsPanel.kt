@@ -100,7 +100,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
                             )
                             .validationInfo { comboBox ->
                                 val portName = comboBox.selectedItem.asSafely<String>()
-                                if (portName.isNullOrBlank()) ValidationInfo("No port name was provided").withOKEnabled()
+                                if (portName.isNullOrBlank()) ValidationInfo("No port name provided").withOKEnabled()
                                 else if (!portSelectModel.contains(portName)) ValidationInfo("Unknown port name").asWarning()
                                     .withOKEnabled()
                                 else null
