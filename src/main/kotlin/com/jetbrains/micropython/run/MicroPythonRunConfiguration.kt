@@ -25,7 +25,6 @@ import com.intellij.execution.configurations.RunProfileState
 import com.intellij.execution.configurations.RuntimeConfigurationError
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.facet.ui.ValidationResult
-import com.intellij.openapi.application.EDT
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.module.Module
@@ -49,46 +48,41 @@ import com.jetbrains.micropython.nova.performReplAction
 import com.jetbrains.micropython.settings.MicroPythonProjectConfigurable
 import com.jetbrains.micropython.settings.microPythonFacet
 import com.jetbrains.python.sdk.PythonSdkUtil
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jdom.Element
-import java.nio.file.Path
-
 
 /**
- * @author Mikhail Golubev
+ * @author Mikhail Golubev, Lukas Kremla
  */
-
 class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactory) : AbstractRunConfiguration(project, factory), RunConfigurationWithSuppressedDefaultDebugAction {
-
   var path: String = ""
   var runReplOnSuccess: Boolean = false
   var resetOnSuccess: Boolean = true
 
   override fun getValidModules() =
-          allModules.filter { it.microPythonFacet != null }.toMutableList()
+    allModules.filter { it.microPythonFacet != null }.toMutableList()
 
   override fun getConfigurationEditor() = MicroPythonRunConfigurationEditor(this)
 
-
   override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
     val success: Boolean
-    if (path.isBlank()) {
+    val projectDir = project.guessProjectDir()
+    val projectPath = projectDir?.path
+
+    if (path.isBlank() || (projectPath != null && path == projectPath)) {
       success = uploadProject(project)
     } else {
-      val toUpload = VfsUtil.findFile(Path.of(project.basePath ?: return null), true) ?: return null
+      val toUpload = StandardFileSystems.local().findFileByPath(path) ?: return null
       success = uploadFileOrFolder(project, toUpload)
     }
     if (success) {
       val fileSystemWidget = fileSystemWidget(project)
-      if(resetOnSuccess)fileSystemWidget?.reset()
-      if(runReplOnSuccess) fileSystemWidget?.activateRepl()
+      if (resetOnSuccess) fileSystemWidget?.reset()
+      if (runReplOnSuccess) fileSystemWidget?.activateRepl()
       return EmptyRunProfileState.INSTANCE
     } else {
       return null
     }
   }
-
 
   override fun checkConfiguration() {
     super.checkConfiguration()
@@ -97,15 +91,17 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       when {
         PlatformUtils.isPyCharm() ->
           ShowSettingsUtil.getInstance().showSettingsDialog(project, MicroPythonProjectConfigurable::class.java)
+
         PlatformUtils.isIntelliJ() ->
           ProjectSettingsService.getInstance(project).openModuleSettings(module)
+
         else ->
           ShowSettingsUtil.getInstance().showSettingsDialog(project)
       }
     }
     val facet = m.microPythonFacet ?: throw RuntimeConfigurationError(
-            "MicroPython support is not enabled for selected module in IDE settings",
-            showSettings
+      "MicroPython support was not enabled for selected module in IDE settings",
+      showSettings
     )
     val validationResult = facet.checkValid()
     if (validationResult != ValidationResult.OK) {
@@ -114,7 +110,7 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       }
       throw RuntimeConfigurationError(validationResult.errorMessage, runQuickFix)
     }
-    facet.pythonPath ?: throw RuntimeConfigurationError("Python interpreter was not found")
+    facet.pythonPath ?: throw RuntimeConfigurationError("Python interpreter is not found")
   }
 
   override fun suggestedName() = "Flash ${PathUtil.getFileName(path)}"
@@ -151,16 +147,9 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     }
 
   companion object {
-
     private fun VirtualFile.leadingDot() = this.name.startsWith(".")
 
-    fun uploadFileOrFolder(project: Project, toUpload: VirtualFile): Boolean {
-      FileDocumentManager.getInstance().saveAllDocuments()
-      performUpload(project,listOf(toUpload.name to toUpload))
-      return false
-    }
-
-    private fun collectUploadables(project: Project): Set<VirtualFile> {
+    private fun collectProjectUploadables(project: Project): Set<VirtualFile> {
       return project.modules.flatMap { module ->
         val moduleRoots = module.rootManager
           .contentEntries
@@ -188,38 +177,104 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       return excludes
     }
 
-    fun uploadProject(project: Project): Boolean {
-      val filesToUpload = collectUploadables(project).map { file -> "" to file }.toMutableList()
-      return performUpload(project, filesToUpload)
+    private fun collectSourceRoots(project: Project): Set<VirtualFile> {
+      return project.modules.flatMap { module ->
+        module.rootManager.contentEntries
+          .flatMap { entry -> entry.sourceFolders.toList() }
+          .filter { sourceFolder ->
+            !sourceFolder.isTestSource && sourceFolder.file?.let { !it.leadingDot() } ?: false
+          }
+          .mapNotNull { it.file }
+      }.toSet()
     }
 
-    private fun performUpload(project: Project, filesToUpload: List<Pair<String, VirtualFile>>): Boolean {
-      val flatListToUpload = filesToUpload.toMutableList()
-      val ignorableFolders = collectExcluded(project)
+    private fun collectTestRoots(project: Project): Set<VirtualFile> {
+      return project.modules.flatMap { module ->
+        module.rootManager.contentEntries
+          .flatMap { entry -> entry.sourceFolders.toList() }
+          .filter { sourceFolder -> sourceFolder.isTestSource }
+          .mapNotNull { it.file }
+      }.toSet()
+    }
+
+    fun uploadProject(project: Project): Boolean {
+      FileDocumentManager.getInstance().saveAllDocuments()
+      val filesToUpload = collectProjectUploadables(project)
+      return performUpload(project, filesToUpload, true)
+    }
+
+    fun uploadFileOrFolder(project: Project, toUpload: VirtualFile): Boolean {
+      FileDocumentManager.getInstance().saveAllDocuments()
+      return performUpload(project, setOf(toUpload), false)
+    }
+
+    fun uploadItems(project: Project, toUpload: Set<VirtualFile>): Boolean {
+      FileDocumentManager.getInstance().saveAllDocuments()
+      return performUpload(project, toUpload, false)
+    }
+
+    private fun performUpload(project: Project, toUpload: Set<VirtualFile>, isProjectUpload: Boolean): Boolean {
+      val filesToUpload = toUpload.toMutableList()
+      val excludedFolders = collectExcluded(project)
+      val sourceFolders = collectSourceRoots(project)
+      val testFolders = collectTestRoots(project)
+
       performReplAction(project, true, "Upload files") { fileSystemWidget ->
-        withContext(Dispatchers.EDT) {
-          FileDocumentManager.getInstance().saveAllDocuments()
-        }
-        val fileTypeRegistry = FileTypeRegistry.getInstance()
-        var index = 0
-        while (index < flatListToUpload.size) {
-          val file = flatListToUpload[index].second
-          if (!file.isValid || file.leadingDot() || fileTypeRegistry.isFileIgnored(file)) {
-            flatListToUpload.removeAt(index)
-          } else if (ignorableFolders.any { VfsUtil.isAncestor(it, file, true) }) {
-            flatListToUpload.removeAt(index)
-          } else if (file.isDirectory) {
-            file.children.forEach {  flatListToUpload.add("${flatListToUpload[index].first}/${it.name}" to it) }
-            flatListToUpload.removeAt(index)
-          } else {
-            index++
+        var i = 0
+        while (i < filesToUpload.size) {
+          val file = filesToUpload[i]
+
+          val shouldSkip = !file.isValid ||
+                  file.leadingDot() ||
+                  FileTypeRegistry.getInstance().isFileIgnored(file) ||
+                  excludedFolders.any { VfsUtil.isAncestor(it, file, true) } ||
+                  (isProjectUpload && testFolders.any { VfsUtil.isAncestor(it, file, true) }) ||
+                  (isProjectUpload && sourceFolders.isNotEmpty() &&
+                          !sourceFolders.any { VfsUtil.isAncestor(it, file, false) })
+
+          when {
+            shouldSkip -> {
+              filesToUpload.removeAt(i)
+            }
+
+            file.isDirectory -> {
+              filesToUpload.addAll(file.children)
+              filesToUpload.removeAt(i)
+            }
+
+            else -> i++
           }
+
           checkCanceled()
         }
-        //todo low priority create empty folders
-        reportSequentialProgress(flatListToUpload.size) { reporter ->
-          flatListToUpload.forEach { (path, file) ->
+
+        reportSequentialProgress(filesToUpload.size) { reporter ->
+          val fileSystem = fileSystemWidget.getDeviceFileSystem()
+
+          filesToUpload.forEach { file ->
+            val path = when {
+              sourceFolders.find { VfsUtil.isAncestor(it, file, false) }?.let { sourceRoot ->
+                VfsUtil.getRelativePath(file, sourceRoot) ?: file.name
+              } != null -> VfsUtil.getRelativePath(file, sourceFolders.find { VfsUtil.isAncestor(it, file, false) }!!) ?: file.name
+
+              testFolders.find { VfsUtil.isAncestor(it, file, false) }?.let { sourceRoot ->
+                VfsUtil.getRelativePath(file, sourceRoot) ?: file.name
+              } != null -> VfsUtil.getRelativePath(file, testFolders.find { VfsUtil.isAncestor(it, file, false) }!!) ?: file.name
+
+              else -> project.guessProjectDir()?.let { VfsUtil.getRelativePath(file, it) } ?: file.name
+            }
             reporter.itemStep(path)
+
+            val deviceFile = fileSystem.files[path]
+
+            if (deviceFile != null &&
+              deviceFile.fullPath == path &&
+              deviceFile.size == file.length &&
+              fileSystemWidget.doesCRCMatch(deviceFile.fullPath, file)
+            ) {
+              return@forEach
+            }
+
             fileSystemWidget.upload(path, file.contentsToByteArray())
           }
         }
@@ -227,6 +282,5 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
       }
       return true
     }
-
   }
 }

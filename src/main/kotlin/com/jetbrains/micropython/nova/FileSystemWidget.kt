@@ -17,6 +17,7 @@ import com.intellij.openapi.progress.currentThreadCoroutineScope
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.PopupHandler
@@ -37,16 +38,15 @@ import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jetbrains.micropython.settings.DEFAULT_WEBREPL_URL
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
 import java.io.IOException
+import java.util.*
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
+import kotlin.coroutines.cancellation.CancellationException
 
 private const val MPY_FS_SCAN = """
 
@@ -69,6 +69,25 @@ except Exception:
   
 """
 
+private val MPY_CALCULATE_CRC = { filePath: String ->
+    """
+import binascii
+
+try:
+    with open('$filePath', 'rb') as f:
+        crc = '%08x' % (binascii.crc32(f.read()) & 0xffffffff)
+        print(crc)  # Print directly inside the function
+except Exception as e:
+    print(f"ERROR: {str(e)}")
+    
+try:
+    import gc
+    gc.collect()
+except Exception:
+    pass
+"""
+}
+
 data class ConnectionParameters(
     var uart: Boolean = true,
     var url: String,
@@ -78,6 +97,15 @@ data class ConnectionParameters(
     constructor(portName: String) : this(uart = true, url = DEFAULT_WEBREPL_URL, password = "", portName = portName)
     constructor(url: String, password: String) : this(uart = false, url = url, password = password, portName = "")
 }
+
+data class DeviceFile(
+    val fullPath: String,
+    val size: Long,
+)
+
+data class DeviceFileSystem(
+    val files: Map<String, DeviceFile>
+)
 
 class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     JBPanel<FileSystemWidget>(BorderLayout()) {
@@ -157,6 +185,65 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         tree.model = null
     }
 
+    suspend fun getDeviceFileSystem(): DeviceFileSystem {
+        val files = mutableMapOf<String, DeviceFile>()
+
+        val dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
+        dirList.lines().filter { it.isNotBlank() }.forEach { line ->
+            val fields = line.split('&')
+            val len = fields[1].toLong()
+            val fullPath = fields[2].drop(1)
+
+            files[fullPath] = DeviceFile(
+                fullPath = fullPath,
+                size = len,
+            )
+        }
+
+        return DeviceFileSystem(files)
+    }
+
+    suspend fun doesCRCMatch(deviceFilePath: String, localFile: VirtualFile): Boolean {
+        val deviceFileCRC = blindExecute(LONG_TIMEOUT, MPY_CALCULATE_CRC(deviceFilePath))
+            .extractSingleResponse()
+            .trim()
+
+        if (deviceFileCRC.startsWith("ERROR:")) {
+            return false
+        }
+
+        val localFileBytes = localFile.contentsToByteArray()
+        val crc = java.util.zip.CRC32()
+        crc.update(localFileBytes)
+        val localFileCRC = String.format("%08x", crc.value)
+
+        return deviceFileCRC == localFileCRC
+    }
+
+    private fun DefaultMutableTreeNode.sortChildren() {
+        val children = Collections.list(children() as Enumeration<DefaultMutableTreeNode>)
+            .filterIsInstance<FileSystemNode>()
+
+        if (childCount < 2) {
+            children.filterIsInstance<DirNode>().forEach { it.sortChildren() }
+            return
+        }
+
+        val sortedChildren = children.sortedWith(compareBy<FileSystemNode> {
+            if (it is DirNode) 0 else 1
+        }.thenBy {
+            it.name.lowercase()
+        })
+
+        removeAllChildren()
+        sortedChildren.forEach { add(it) }
+
+        val newChildren = Collections.list(children() as Enumeration<DefaultMutableTreeNode>)
+            .filterIsInstance<DirNode>()
+
+        newChildren.forEach { it.sortChildren() }
+    }
+
     suspend fun refresh() {
         comm.checkConnected()
         val newModel = newTreeModel()
@@ -183,6 +270,9 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 }
             }
         }
+
+        (newModel.root as DefaultMutableTreeNode).sortChildren()
+
         withContext(Dispatchers.EDT) {
             val expandedPaths = TreeUtil.collectExpandedPaths(tree)
             val selectedPath = tree.selectionPath
@@ -232,8 +322,19 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                     }
                 }
                 .toCollection(commands)
-            blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
-                .extractResponse()
+            try {
+                blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+                    .extractResponse()
+            } catch (e: IOException) {
+                if (e.message?.contains("ENOENT") != true) {
+                    throw e
+                }
+            } catch (e: CancellationException) {
+                withContext(NonCancellable) {
+                    refresh()
+                }
+                throw e
+            }
         }
     }
 
@@ -246,8 +347,16 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     }
 
     @Throws(IOException::class)
-    suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) =
-        comm.upload(relativeName, contentsToByteArray)
+    suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) {
+        try {
+            comm.upload(relativeName, contentsToByteArray)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                refresh()
+            }
+            throw e
+        }
+    }
 
     @Throws(IOException::class)
     suspend fun download(deviceFileName: @NonNls String): ByteArray =
@@ -291,7 +400,6 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun blindExecute(commandTimeout: Long, vararg commands: String): ExecResponse {
         clearTerminalIfNeeded()
         return comm.blindExecute(commandTimeout, *commands)
-
     }
 
     internal suspend fun clearTerminalIfNeeded() {
