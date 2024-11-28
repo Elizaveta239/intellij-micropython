@@ -71,20 +71,29 @@ except Exception:
 
 private val MPY_CALCULATE_CRC = { filePath: String ->
     """
+        
 import binascii
 
 try:
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+
     with open('$filePath', 'rb') as f:
         crc = '%08x' % (binascii.crc32(f.read()) & 0xffffffff)
-        print(crc)  # Print directly inside the function
+        print(crc)
+        
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+        
 except Exception as e:
     print(f"ERROR: {str(e)}")
     
-try:
-    import gc
-    gc.collect()
-except Exception:
-    pass
 """
 }
 
@@ -283,7 +292,6 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     }
 
     suspend fun deleteCurrent() {
-
         comm.checkConnected()
         val confirmedFileSystemNodes = withContext(Dispatchers.EDT) {
             val fileSystemNodes = tree.selectionPaths?.mapNotNull { it.lastPathComponent.asSafely<FileSystemNode>() }

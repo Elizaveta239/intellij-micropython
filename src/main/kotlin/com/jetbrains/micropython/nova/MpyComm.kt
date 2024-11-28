@@ -93,7 +93,7 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
             if (slashIdx > 0) {
                 val folderName = fullName.substring(0, slashIdx)
                 commands.add(
-"""try: os.mkdir('$folderName');
+                    """try: os.mkdir('$folderName');
 except OSError as e:
     if e.errno != errno.EEXIST: raise """
                 )
@@ -172,64 +172,66 @@ except OSError as e:
     }
 
     @Throws(IOException::class)
-    private suspend fun doBlindExecute(commandTimeout:Long, vararg commands: String): ExecResponse {
+    private suspend fun doBlindExecute(commandTimeout: Long, vararg commands: String): ExecResponse {
         state = State.TTY_DETACHED
         return try {
-                withTimeout(LONG_TIMEOUT) {
-                    do {
-                        var promptNotReady = true
-                        client?.send("\u0003")
-                        client?.send("\u0003")
-                        client?.send("\u0003")
-                        delay(SHORT_DELAY)
-                        client?.send("\u0001")
-                        withTimeoutOrNull(TIMEOUT) {
-                            while (!offTtyBuffer.endsWith("\n>")) {
-                                delay(SHORT_DELAY)
-                            }
-                            promptNotReady = false
+            withTimeout(LONG_TIMEOUT) {
+                do {
+                    var promptNotReady = true
+                    client?.send("\u0003")
+                    client?.send("\u0003")
+                    client?.send("\u0003")
+                    delay(SHORT_DELAY)
+                    client?.send("\u0001")
+                    withTimeoutOrNull(TIMEOUT) {
+                        while (!offTtyBuffer.endsWith("\n>")) {
+                            delay(SHORT_DELAY)
                         }
-                    } while (promptNotReady)
-                }
-                delay(SHORT_DELAY)
-                offTtyBuffer.clear()
-                val result = mutableListOf<SingleExecResponse>()
-                for (command in commands) {
-                    try {
-                        withTimeout(commandTimeout) {
-                            command.lines().forEachIndexed { index, s ->
-                                if (index > 0) {
-                                    delay(SHORT_DELAY)
-                                }
-                                client?.send("$s\n")
-                            }
-                            client?.send("\u0004")
-                            while (!(offTtyBuffer.startsWith("OK") && offTtyBuffer.endsWith("\u0004>") && offTtyBuffer.count { it == '\u0004' } == 2)) {
-                                delay(SHORT_DELAY)
-                            }
-                            val eotPos = offTtyBuffer.indexOf('\u0004')
-                            val stdout = offTtyBuffer.substring(2, eotPos).trim()
-                            val stderr = offTtyBuffer.substring(eotPos + 1, offTtyBuffer.length - 2).trim()
-                            result.add(SingleExecResponse(stdout, stderr))
-                            offTtyBuffer.clear()
-                        }
-                    } catch (e: TimeoutCancellationException) {
-                        throw IOException("Timeout during command execution:$command", e)
+                        promptNotReady = false
                     }
-                }
-                return result
-            } catch (e: Throwable) {
-                state = State.DISCONNECTED
-                client?.close()
-                client = null
-                throw e
-            } finally {
-                client?.send("\u0002")
-                offTtyBuffer.clear()
-                if (state == State.TTY_DETACHED) {
-                    state = State.CONNECTED
+                } while (promptNotReady)
+            }
+            delay(SHORT_DELAY)
+            offTtyBuffer.clear()
+            val result = mutableListOf<SingleExecResponse>()
+            for (command in commands) {
+                try {
+                    withTimeout(commandTimeout) {
+                        command.lines().forEachIndexed { index, s ->
+                            if (index > 0) {
+                                delay(SHORT_DELAY)
+                            }
+                            client?.send("$s\n")
+                        }
+                        client?.send("\u0004")
+                        while (!(offTtyBuffer.startsWith("OK") && offTtyBuffer.endsWith("\u0004>") && offTtyBuffer.count { it == '\u0004' } == 2)) {
+                            delay(SHORT_DELAY)
+                        }
+                        val eotPos = offTtyBuffer.indexOf('\u0004')
+                        val stdout = offTtyBuffer.substring(2, eotPos).trim()
+                        val stderr = offTtyBuffer.substring(eotPos + 1, offTtyBuffer.length - 2).trim()
+                        result.add(SingleExecResponse(stdout, stderr))
+                        offTtyBuffer.clear()
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    throw IOException("Timeout during command execution:$command", e)
                 }
             }
+            return result
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            state = State.DISCONNECTED
+            client?.close()
+            client = null
+            throw e
+        } finally {
+            client?.send("\u0002")
+            offTtyBuffer.clear()
+            if (state == State.TTY_DETACHED) {
+                state = State.CONNECTED
+            }
+        }
     }
 
     fun checkConnected() {
@@ -241,7 +243,7 @@ except OSError as e:
     }
 
     @Throws(IOException::class)
-    suspend fun blindExecute(commandTimeout:Long, vararg commands: String): ExecResponse {
+    suspend fun blindExecute(commandTimeout: Long, vararg commands: String): ExecResponse {
         checkConnected()
         webSocketMutex.withLock {
             return doBlindExecute(commandTimeout, *commands)
