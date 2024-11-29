@@ -17,7 +17,6 @@ import com.intellij.openapi.progress.currentThreadCoroutineScope
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.PopupHandler
@@ -69,43 +68,6 @@ except Exception:
   
 """
 
-private val MPY_CALCULATE_CRC = { filePath: String ->
-    """
-        
-import binascii
-
-try:
-    try:
-        import gc
-        gc.collect()
-    except Exception:
-        pass
-
-    chunk_size = 1024
-
-    with open('$filePath', 'rb') as f:
-        chunk = f.read(chunk_size)
-        crc = 0
-        while len(chunk) > 0:
-            crc = binascii.crc32(chunk, crc)
-            chunk = f.read(chunk_size)
-
-        crc = '%08x' % (crc & 0xffffffff)
-        print(crc)
-
-    try:
-        import gc
-
-        gc.collect()
-    except Exception:
-        pass
-
-except Exception as e:
-    print(f"ERROR: {str(e)}")
-    
-"""
-}
-
 data class ConnectionParameters(
     var uart: Boolean = true,
     var url: String,
@@ -115,15 +77,6 @@ data class ConnectionParameters(
     constructor(portName: String) : this(uart = true, url = DEFAULT_WEBREPL_URL, password = "", portName = portName)
     constructor(url: String, password: String) : this(uart = false, url = url, password = password, portName = "")
 }
-
-data class DeviceFile(
-    val fullPath: String,
-    val size: Long,
-)
-
-data class DeviceFileSystem(
-    val files: Map<String, DeviceFile>
-)
 
 class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     JBPanel<FileSystemWidget>(BorderLayout()) {
@@ -201,45 +154,6 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
             }
         }
         tree.model = null
-    }
-
-    suspend fun getDeviceFileSystem(): DeviceFileSystem {
-        val files = mutableMapOf<String, DeviceFile>()
-
-        val dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
-        dirList.lines().filter { it.isNotBlank() }.forEach { line ->
-            val fields = line.split('&')
-            val len = fields[1].toLong()
-            val fullPath = fields[2].drop(1)
-
-            files[fullPath] = DeviceFile(
-                fullPath = fullPath,
-                size = len,
-            )
-        }
-
-        return DeviceFileSystem(files)
-    }
-
-    suspend fun doesCRCMatch(deviceFilePath: String, localFile: VirtualFile): Boolean {
-        val deviceFileCRC = try {
-            blindExecute(LONG_TIMEOUT, MPY_CALCULATE_CRC(deviceFilePath))
-                .extractSingleResponse()
-                .trim()
-        } catch (e: Exception) {
-            return false
-        }
-
-        if (deviceFileCRC.startsWith("ERROR:")) {
-            return false
-        }
-
-        val localFileBytes = localFile.contentsToByteArray()
-        val crc = java.util.zip.CRC32()
-        crc.update(localFileBytes)
-        val localFileCRC = String.format("%08x", crc.value)
-
-        return deviceFileCRC == localFileCRC
     }
 
     private fun DefaultMutableTreeNode.sortChildren() {

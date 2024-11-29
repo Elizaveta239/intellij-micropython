@@ -260,8 +260,6 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
                 val uniqueFilesToUpload = filesToUpload.distinct()
 
                 reportSequentialProgress(uniqueFilesToUpload.size) { reporter ->
-                    val fileSystem = fileSystemWidget.getDeviceFileSystem()
-
                     uniqueFilesToUpload.forEach { file ->
                         val path = when {
                             sourceFolders.find { VfsUtil.isAncestor(it, file, false) }?.let { sourceRoot ->
@@ -275,16 +273,6 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
                             else -> projectDir?.let { VfsUtil.getRelativePath(file, it) } ?: file.name
                         }
                         reporter.itemStep(path)
-
-                        val deviceFile = fileSystem.files[path]
-
-                        if (deviceFile != null &&
-                            deviceFile.fullPath == path &&
-                            deviceFile.size == file.length &&
-                            fileSystemWidget.doesCRCMatch(deviceFile.fullPath, file)
-                        ) {
-                            return@forEach
-                        }
 
                         fileSystemWidget.upload(path, file.contentsToByteArray())
                     }
