@@ -81,16 +81,25 @@ try:
     except Exception:
         pass
 
+    chunk_size = 1024
+
     with open('$filePath', 'rb') as f:
-        crc = '%08x' % (binascii.crc32(f.read()) & 0xffffffff)
+        chunk = f.read(chunk_size)
+        crc = 0
+        while len(chunk) > 0:
+            crc = binascii.crc32(chunk, crc)
+            chunk = f.read(chunk_size)
+
+        crc = '%08x' % (crc & 0xffffffff)
         print(crc)
-        
+
     try:
         import gc
+
         gc.collect()
     except Exception:
         pass
-        
+
 except Exception as e:
     print(f"ERROR: {str(e)}")
     
@@ -213,9 +222,13 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     }
 
     suspend fun doesCRCMatch(deviceFilePath: String, localFile: VirtualFile): Boolean {
-        val deviceFileCRC = blindExecute(LONG_TIMEOUT, MPY_CALCULATE_CRC(deviceFilePath))
-            .extractSingleResponse()
-            .trim()
+        val deviceFileCRC = try {
+            blindExecute(LONG_TIMEOUT, MPY_CALCULATE_CRC(deviceFilePath))
+                .extractSingleResponse()
+                .trim()
+        } catch (e: Exception) {
+            return false
+        }
 
         if (deviceFileCRC.startsWith("ERROR:")) {
             return false
