@@ -151,17 +151,11 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
 
         private fun collectProjectUploadables(project: Project): Set<VirtualFile> {
             return project.modules.flatMap { module ->
-                val moduleRoots = module.rootManager
-                    .contentEntries
-                    .flatMap { it.sourceFolders.asSequence() }
-                    .mapNotNull { if (!it.isTestSource) it.file else null }
+                module.rootManager.contentEntries
+                    .mapNotNull { it.file }
+                    .flatMap { it.children.toList() }
                     .filter { !it.leadingDot() }
                     .toMutableList()
-
-                if (moduleRoots.isEmpty()) {
-                    module.rootManager.contentRoots.filterTo(moduleRoots) { it.isDirectory && !it.leadingDot() }
-                }
-                moduleRoots
             }.toSet()
         }
 
