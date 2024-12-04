@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -33,6 +34,8 @@ dependencies {
             "PY" -> bundledPlugin("Pythonid")
             else -> plugin(pythonPlugin)
         }
+        testFramework(TestFrameworkType.JUnit5)
+        testFramework(TestFrameworkType.Platform)
     }
 
     implementation("org.java-websocket:Java-WebSocket:1.5.5")
@@ -42,6 +45,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testRuntimeOnly("junit:junit:4.13.2")
 }
 
 java {

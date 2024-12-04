@@ -1,0 +1,6 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Flash lib-ignored" type="MicroPythonConfigurationType" factoryName="MicroPython" nameIsGenerated="true" path="D:\work\intellij-micropython\test-projects\layout-b\lib-ignored" run-repl-on-success="no" reset-on-success="yes">
+    <module name="layout-b" />
+    <method v="2" />
+  </configuration>
+</component>
