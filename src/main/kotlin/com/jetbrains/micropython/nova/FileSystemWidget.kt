@@ -157,6 +157,30 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         tree.model = null
     }
 
+    private fun DefaultMutableTreeNode.sortChildren() {
+        val children = Collections.list(children() as Enumeration<DefaultMutableTreeNode>)
+            .filterIsInstance<FileSystemNode>()
+
+        if (childCount < 2) {
+            children.filterIsInstance<DirNode>().forEach { it.sortChildren() }
+            return
+        }
+
+        val sortedChildren = children.sortedWith(compareBy<FileSystemNode> {
+            if (it is DirNode) 0 else 1
+        }.thenBy {
+            it.name.lowercase()
+        })
+
+        removeAllChildren()
+        sortedChildren.forEach { add(it) }
+
+        val newChildren = Collections.list(children() as Enumeration<DefaultMutableTreeNode>)
+            .filterIsInstance<DirNode>()
+
+        newChildren.forEach { it.sortChildren() }
+    }
+
     suspend fun refresh() {
         comm.checkConnected()
         val newModel = newTreeModel()
@@ -183,6 +207,9 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 }
             }
         }
+
+        (newModel.root as DefaultMutableTreeNode).sortChildren()
+
         withContext(Dispatchers.EDT) {
             val expandedPaths = TreeUtil.collectExpandedPaths(tree)
             val selectedPath = tree.selectionPath
