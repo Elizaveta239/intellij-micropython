@@ -37,10 +37,7 @@ import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jetbrains.micropython.settings.DEFAULT_WEBREPL_URL
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
 import java.io.IOException
@@ -232,8 +229,19 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                     }
                 }
                 .toCollection(commands)
-            blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
-                .extractResponse()
+            try {
+                blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
+                    .extractResponse()
+            } catch (e: IOException) {
+                if (e.message?.contains("ENOENT") != true) {
+                    throw e
+                }
+            } catch (e: CancellationException) {
+                withContext(NonCancellable) {
+                    refresh()
+                }
+                throw e
+            }
         }
     }
 
@@ -246,8 +254,16 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     }
 
     @Throws(IOException::class)
-    suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) =
-        comm.upload(relativeName, contentsToByteArray)
+    suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) {
+        try {
+            comm.upload(relativeName, contentsToByteArray)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                refresh()
+            }
+            throw e
+        }
+    }
 
     @Throws(IOException::class)
     suspend fun download(deviceFileName: @NonNls String): ByteArray =
