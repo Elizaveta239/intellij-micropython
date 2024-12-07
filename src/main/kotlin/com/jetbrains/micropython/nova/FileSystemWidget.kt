@@ -13,7 +13,6 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileTypes.FileTypeRegistry
-import com.intellij.openapi.progress.currentThreadCoroutineScope
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.Disposer
@@ -44,6 +43,7 @@ import java.io.IOException
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
+import kotlin.Throws
 
 private const val MPY_FS_SCAN = """
 
@@ -157,7 +157,16 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
     suspend fun refresh() {
         comm.checkConnected()
         val newModel = newTreeModel()
-        val dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
+        val dirList: String
+        try {
+            dirList = blindExecute(LONG_TIMEOUT, MPY_FS_SCAN).extractSingleResponse()
+        } catch (e: CancellationException) {
+            disconnect()
+            throw IOException("Micropython filesystem scan cancelled, the board is disconnected", e)
+        } catch (e: Throwable) {
+            disconnect()
+            throw IOException("Micropython filesystem scan failed, ${e.localizedMessage}", e)
+        }
         dirList.lines().filter { it.isNotBlank() }.forEach { line ->
             line.split('&').let { fields ->
                 val flags = fields[0].toInt()
@@ -233,14 +242,17 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 blindExecute(LONG_TIMEOUT, *commands.toTypedArray())
                     .extractResponse()
             } catch (e: IOException) {
-                if (e.message?.contains("ENOENT") != true) {
+                if (e.message?.contains("ENOENT") != true) { //todo fix NOENT python exception and remove this hack
                     throw e
                 }
-            } catch (e: CancellationException) {
-                withContext(NonCancellable) {
-                    refresh()
-                }
-                throw e
+            } catch (_: CancellationException) {
+                Notifications.Bus.notify(
+                    Notification(
+                        NOTIFICATION_GROUP,
+                        "Deletion cancelled",
+                        NotificationType.INFORMATION
+                    ), project
+                )
             }
         }
     }
@@ -258,9 +270,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         try {
             comm.upload(relativeName, contentsToByteArray)
         } catch (e: CancellationException) {
-            withContext(NonCancellable) {
-                refresh()
-            }
+            refresh()
             throw e
         }
     }
