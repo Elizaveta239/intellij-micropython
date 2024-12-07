@@ -2,7 +2,6 @@ package com.jetbrains.micropython.nova.real
 
 import com.jetbrains.micropython.nova.ConnectionParameters
 import com.jetbrains.micropython.nova.MpyCommForTest
-import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Disabled
 
 private const val PORT_NAME="COM2"
@@ -14,7 +13,7 @@ class RealSerialConnect: RealConnectTestBase() {
 
     override fun doInit() {
         Thread.sleep(1000)
-        comm = MpyCommForTest { fail(it) }
+        comm = MpyCommForTest ()
         comm.setConnectionParams(serialParams)
         Thread.sleep(500)
     }

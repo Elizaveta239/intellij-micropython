@@ -4,7 +4,6 @@ import com.jetbrains.micropython.nova.Client
 import com.jetbrains.micropython.nova.ConnectionParameters
 import com.jetbrains.micropython.nova.MpyCommForTest
 import kotlinx.coroutines.runBlocking
-import org.assertj.core.api.Assertions.fail
 import org.jetbrains.annotations.NonNls
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
@@ -22,7 +21,7 @@ abstract class FileTest(val connectionParameters: ConnectionParameters) {
     @BeforeEach
     fun init() {
         uploadedFiles.clear()
-        comm = CountingMpyComm { fail(it) }
+        comm = CountingMpyComm()
         comm.setConnectionParams(connectionParameters)
         runBlocking {
             comm.connect()
@@ -106,7 +105,7 @@ abstract class FileTest(val connectionParameters: ConnectionParameters) {
 
 }
 
-class CountingMpyComm(errorLogger: (Throwable) -> Any = {}) : MpyCommForTest(errorLogger) {
+class CountingMpyComm() : MpyCommForTest() {
     @Volatile
     var charsTransmitted = 0L
 

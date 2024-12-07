@@ -75,7 +75,11 @@ class WebSocketTestServer(tcpPort: Int) :
             Thread.sleep(100)
         }
         use {
-            WebSocketCommTest { exceptions.add(it) }
+            object :WebSocketCommTest () {
+                override fun errorLogger(exception: Exception) {
+                    exceptions.add(exception)
+                }
+            }
                 .use {
                     runBlocking { block(it) }
                 }
@@ -85,7 +89,7 @@ class WebSocketTestServer(tcpPort: Int) :
 }
 
 
-class WebSocketCommTest(errorLogger: (Throwable) -> Any = {}) : MpyCommForTest(errorLogger) {
+open class WebSocketCommTest() : MpyCommForTest() {
     inner class MpyWebSocketClientTest() : MpyWebSocketClient(this) {
         override fun error(ex: Exception) {
             println("== ON ERROR ==")

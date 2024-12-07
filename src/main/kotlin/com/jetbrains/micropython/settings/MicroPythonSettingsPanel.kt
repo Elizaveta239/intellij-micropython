@@ -36,9 +36,8 @@ import com.intellij.util.asSafely
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
 import com.jetbrains.micropython.devices.MicroPythonDeviceProvider
-import com.jetbrains.micropython.nova.ConnectCredentials
 import com.jetbrains.micropython.nova.ConnectionParameters
-import com.jetbrains.micropython.nova.SerialPortListService
+import com.jetbrains.micropython.nova.MpySupportService
 import com.jetbrains.micropython.nova.messageForBrokenUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -69,7 +68,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
     init {
         border = IdeBorderFactory.createEmptyBorder(UIUtil.PANEL_SMALL_INSETS)
         runWithModalProgressBlocking(module.project, "Save password") {
-            parameters.password = module.project.service<ConnectCredentials>().retrievePassword(parameters.url)
+            parameters.password = module.project.service<MpySupportService>().retrievePassword(parameters.url)
         }
         val deviceContentPanel = FormBuilder.createFormBuilder().addLabeledComponent("Device type:", deviceTypeCombo)
             .addComponent(docsHyperlink).panel
@@ -78,7 +77,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
             portSelectModel.add(parameters.portName)
         }
 
-        module.project.service<SerialPortListService>().listPorts { ports ->
+        module.project.service<MpySupportService>().listSerialPorts { ports ->
             withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) {
                 portSelectModel.addAll(portSelectModel.size, ports.filter { !portSelectModel.contains(it) })
                 if (portSelectModel.selectedItem.asSafely<String>().isNullOrBlank() && !portSelectModel.isEmpty) {
@@ -175,7 +174,7 @@ class MicroPythonSettingsPanel(private val module: Module, disposable: Disposabl
         configuration.uart = parameters.uart
         configuration.portName = parameters.portName
         runWithModalProgressBlocking(facet.module.project, "Save password") {
-            facet.module.project.service<ConnectCredentials>()
+            facet.module.project.service<MpySupportService>()
                 .savePassword(configuration.webReplUrl, parameters.password)
         }
     }

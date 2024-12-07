@@ -10,8 +10,9 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionPlaces.TOOLWINDOW_CONTENT
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.components.service
-import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
@@ -25,7 +26,6 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.Content
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.EditSourceOnDoubleClickHandler
-import com.intellij.util.ExceptionUtil
 import com.intellij.util.asSafely
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.containers.TreeTraversal
@@ -82,16 +82,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
         get() = comm.ttyConnector
     private val tree: Tree = Tree(newTreeModel())
 
-    private val comm: MpyComm = MpyComm {
-        thisLogger().warn(it)
-        Notifications.Bus.notify(
-            Notification(
-                NOTIFICATION_GROUP,
-                ExceptionUtil.getMessage(it) ?: it.toString(),
-                NotificationType.WARNING
-            )
-        )
-    }.also { Disposer.register(newDisposable, it) }
+    private val comm: MpyComm = MpyComm().also { Disposer.register(newDisposable, it) }
 
     val state: State
         get() = comm.state
@@ -142,9 +133,8 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 }
 
                 State.DISCONNECTING,
-                State.DISCONNECTED,
-                State.CONNECTING -> {
-                    currentThreadCoroutineScope().launch(Dispatchers.EDT, start = CoroutineStart.ATOMIC) {
+                State.DISCONNECTED, State.CONNECTING -> {
+                    project.service<MpySupportService>().cs.launch(Dispatchers.EDT + ModalityState.any().asContextElement(), start = CoroutineStart.ATOMIC) {
                         tree.model = null
                     }
                 }

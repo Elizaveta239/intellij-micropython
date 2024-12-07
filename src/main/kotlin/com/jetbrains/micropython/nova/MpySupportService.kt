@@ -5,7 +5,9 @@ import com.intellij.credentialStore.Credentials
 import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
 import com.intellij.openapi.components.Service
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.Nls
 import java.net.URI
@@ -13,7 +15,7 @@ import java.net.URISyntaxException
 
 
 @Service(Service.Level.PROJECT)
-class ConnectCredentials {
+class MpySupportService(val cs: CoroutineScope) {
 
     private fun createCredentialAttributes(key: String): CredentialAttributes {
         return CredentialAttributes(
@@ -36,6 +38,13 @@ class ConnectCredentials {
         val credentials = Credentials(null, password)
         withContext(Dispatchers.IO) {
             PasswordSafe.instance.set(attributes, credentials)
+        }
+    }
+
+    fun listSerialPorts(receiver: suspend (Array<String>) -> Unit) {
+        cs.launch {
+            val portNames = jssc.SerialPortList.getPortNames() ?: emptyArray<String>()
+            receiver(portNames)
         }
     }
 }

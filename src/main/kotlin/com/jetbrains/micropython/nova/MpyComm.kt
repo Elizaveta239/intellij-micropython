@@ -1,8 +1,13 @@
 package com.jetbrains.micropython.nova
 
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.text.Strings
+import com.intellij.util.ExceptionUtil
 import com.intellij.util.text.nullize
 import com.jediterm.core.util.TermSize
 import com.jediterm.terminal.TtyConnector
@@ -58,7 +63,7 @@ fun ExecResponse.extractResponse(): String {
 
 }
 
-open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Closeable {
+open class MpyComm() : Disposable, Closeable {
 
     val stateListeners = mutableListOf<StateListener>()
 
@@ -81,6 +86,17 @@ open class MpyComm(val errorLogger: (Throwable) -> Any = {}) : Disposable, Close
 
     var state: State by Delegates.observable(State.DISCONNECTED) { _, _, newValue ->
         stateListeners.forEach { it(newValue) }
+    }
+
+    open fun errorLogger(exception: Exception) {
+        thisLogger().warn(exception)
+        Notifications.Bus.notify(
+            Notification(
+                NOTIFICATION_GROUP,
+                ExceptionUtil.getMessage(exception) ?: exception.toString(),
+                NotificationType.WARNING
+            )
+        )
     }
 
     @Throws(IOException::class, CancellationException::class, TimeoutCancellationException::class)

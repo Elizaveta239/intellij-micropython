@@ -1,5 +1,10 @@
 package com.jetbrains.micropython.nova
 
-open class MpyCommForTest(errorLogger: (Throwable) -> Any = {}): MpyComm(errorLogger) {
+import org.junit.jupiter.api.fail
+
+open class MpyCommForTest(): MpyComm() {
     public override fun isTtySuspended(): Boolean  = super.isTtySuspended()
+    override fun errorLogger(exception: Exception) {
+        fail(exception)
+    }
 }
