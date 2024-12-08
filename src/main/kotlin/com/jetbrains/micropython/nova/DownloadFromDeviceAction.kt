@@ -15,7 +15,7 @@ import com.intellij.platform.util.progress.reportSequentialProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DownloadFromDeviceAction : ReplAction("Download File or Folder...", true) {
+class DownloadFromDeviceAction : ReplAction("Download File or Folder...", true, false) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {

@@ -40,6 +40,7 @@ import com.intellij.openapi.roots.ui.configuration.ProjectSettingsService
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.platform.util.progress.reportSequentialProgress
 import com.intellij.project.stateStore
 import com.intellij.util.PathUtil
@@ -196,34 +197,39 @@ class MicroPythonRunConfiguration(project: Project, factory: ConfigurationFactor
     private fun performUpload(project: Project, filesToUpload: List<Pair<String, VirtualFile>>): Boolean {
       val flatListToUpload = filesToUpload.toMutableList()
       val ignorableFolders = collectExcluded(project)
-      performReplAction(project, true, "Upload files") { fileSystemWidget ->
-        withContext(Dispatchers.EDT) {
-          FileDocumentManager.getInstance().saveAllDocuments()
-        }
-        val fileTypeRegistry = FileTypeRegistry.getInstance()
-        var index = 0
-        while (index < flatListToUpload.size) {
-          val file = flatListToUpload[index].second
-          if (!file.isValid || file.leadingDot() || fileTypeRegistry.isFileIgnored(file)) {
-            flatListToUpload.removeAt(index)
-          } else if (ignorableFolders.any { VfsUtil.isAncestor(it, file, true) }) {
-            flatListToUpload.removeAt(index)
-          } else if (file.isDirectory) {
-            file.children.forEach {  flatListToUpload.add("${flatListToUpload[index].first}/${it.name}" to it) }
-            flatListToUpload.removeAt(index)
-          } else {
-            index++
+      try {
+        performReplAction(project, true, "Upload files") { fileSystemWidget ->
+          withContext(Dispatchers.EDT) {
+            FileDocumentManager.getInstance().saveAllDocuments()
           }
-          checkCanceled()
-        }
-        //todo low priority create empty folders
-        reportSequentialProgress(flatListToUpload.size) { reporter ->
-          flatListToUpload.forEach { (path, file) ->
-            reporter.itemStep(path)
-            fileSystemWidget.upload(path, file.contentsToByteArray())
+          val fileTypeRegistry = FileTypeRegistry.getInstance()
+          var index = 0
+          while (index < flatListToUpload.size) {
+            val file = flatListToUpload[index].second
+            if (!file.isValid || file.leadingDot() || fileTypeRegistry.isFileIgnored(file)) {
+              flatListToUpload.removeAt(index)
+            } else if (ignorableFolders.any { VfsUtil.isAncestor(it, file, true) }) {
+              flatListToUpload.removeAt(index)
+            } else if (file.isDirectory) {
+              file.children.forEach { flatListToUpload.add("${flatListToUpload[index].first}/${it.name}" to it) }
+              flatListToUpload.removeAt(index)
+            } else {
+              index++
+            }
+            checkCanceled()
+          }
+          //todo low priority create empty folders
+          reportSequentialProgress(flatListToUpload.size) { reporter ->
+            flatListToUpload.forEach { (path, file) ->
+              reporter.itemStep(path)
+              fileSystemWidget.upload(path, file.contentsToByteArray())
+            }
           }
         }
-        fileSystemWidget.refresh()
+      } finally {
+        runWithModalProgressBlocking(project, "Updating file system view...") {
+          fileSystemWidget(project)?.refresh()
+        }
       }
       return true
     }

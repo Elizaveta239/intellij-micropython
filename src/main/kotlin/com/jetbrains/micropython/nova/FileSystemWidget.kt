@@ -43,7 +43,6 @@ import java.io.IOException
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
-import kotlin.Throws
 
 private const val MPY_FS_SCAN = """
 
@@ -267,12 +266,7 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
 
     @Throws(IOException::class)
     suspend fun upload(relativeName: @NonNls String, contentsToByteArray: ByteArray) {
-        try {
-            comm.upload(relativeName, contentsToByteArray)
-        } catch (e: CancellationException) {
-            refresh()
-            throw e
-        }
+        comm.upload(relativeName, contentsToByteArray)
     }
 
     @Throws(IOException::class)

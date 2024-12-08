@@ -51,7 +51,9 @@ fun fileSystemWidget(project: Project?): FileSystemWidget? {
         ?.firstNotNullOfOrNull { it.component.asSafely<FileSystemWidget>() }
 }
 
-abstract class ReplAction(text: String, private val connectionRequired: Boolean) : DumbAwareAction(text) {
+abstract class ReplAction(
+    text: String, private val connectionRequired: Boolean, private val requiresRefreshAfter: Boolean
+) : DumbAwareAction(text) {
 
     abstract val actionDescription: @NlsContexts.DialogMessage String
 
@@ -60,7 +62,15 @@ abstract class ReplAction(text: String, private val connectionRequired: Boolean)
 
     final override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        performReplAction(project, connectionRequired, actionDescription, this::performAction)
+        try {
+            performReplAction(project, connectionRequired, actionDescription, this::performAction)
+        } finally {
+            if (requiresRefreshAfter) {
+                runWithModalProgressBlocking(project, "Updating file system view...") {
+                    fileSystemWidget(project)?.refresh()
+                }
+            }
+        }
     }
 
     protected fun fileSystemWidget(e: AnActionEvent): FileSystemWidget? = fileSystemWidget(e.project)
@@ -88,6 +98,7 @@ fun <T> performReplAction(
     var result: T? = null
     runWithModalProgressBlocking(project, "Exchanging data with the board...") {
         var error: String? = null
+        var errorType = NotificationType.ERROR
         try {
             if (connectionRequired) {
                 doConnect(fileSystemWidget)
@@ -99,6 +110,7 @@ fun <T> performReplAction(
         } catch (e: CancellationException) {
             error = "$description cancelled"
             thisLogger().info(error, e)
+            errorType = NotificationType.INFORMATION
         } catch (e: IOException) {
             error = "$description I/O error - ${e.localizedMessage ?: e.message ?: "No message"}"
             thisLogger().info(error, e)
@@ -109,13 +121,13 @@ fun <T> performReplAction(
             thisLogger().error(error, e)
         }
         if (!error.isNullOrBlank()) {
-            Notifications.Bus.notify(Notification(NOTIFICATION_GROUP, error, NotificationType.ERROR), project)
+            Notifications.Bus.notify(Notification(NOTIFICATION_GROUP, error, errorType), project)
         }
     }
     return result
 }
 
-class Refresh : ReplAction("Refresh", false) {
+class Refresh : ReplAction("Refresh", false, false) { //todo optimize
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
@@ -126,7 +138,7 @@ class Refresh : ReplAction("Refresh", false) {
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) = fileSystemWidget.refresh()
 }
 
-class Disconnect(text: String = "Disconnect") : ReplAction(text, false), Toggleable {
+class Disconnect(text: String = "Disconnect") : ReplAction(text, false, false), Toggleable {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
@@ -143,17 +155,13 @@ class Disconnect(text: String = "Disconnect") : ReplAction(text, false), Togglea
     }
 }
 
-class DeleteFiles : ReplAction("Delete Item(s)", true) {
+class DeleteFiles : ReplAction("Delete Item(s)", true, true) {
     override val actionDescription: String = "Delete"
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override suspend fun performAction(fileSystemWidget: FileSystemWidget) {
-        try {
-            fileSystemWidget.deleteCurrent()
-        } finally {
-            fileSystemWidget.refresh()
-        }
+        fileSystemWidget.deleteCurrent()
     }
 
     override fun update(e: AnActionEvent) {
@@ -184,7 +192,7 @@ class InstantRun : DumbAwareAction() {
     }
 }
 
-class InstantFragmentRun : ReplAction("Instant Run", true) {
+class InstantFragmentRun : ReplAction("Instant Run", true, false) {
     override val actionDescription: String = "Run code"
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
@@ -223,7 +231,7 @@ class InstantFragmentRun : ReplAction("Instant Run", true) {
     }
 }
 
-class OpenMpyFile : ReplAction("Open file", true) {
+class OpenMpyFile : ReplAction("Open file", true, false) {
 
     override val actionDescription: String = "Open file"
 
@@ -292,7 +300,7 @@ class OpenSettingsAction : DumbAwareAction("Settings") {
     }
 }
 
-class InterruptAction: ReplAction("Interrupt", true) {
+class InterruptAction : ReplAction("Interrupt", true, false) {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
     override fun update(e: AnActionEvent)  = enableIfConnected(e)
     override val actionDescription: @NlsContexts.DialogMessage String = "Interrupt..."
@@ -302,7 +310,7 @@ class InterruptAction: ReplAction("Interrupt", true) {
     }
 }
 
-class SoftResetAction: ReplAction("Reset", true) {
+class SoftResetAction : ReplAction("Reset", true, false) {
     override fun getActionUpdateThread(): ActionUpdateThread = BGT
     override fun update(e: AnActionEvent)  = enableIfConnected(e)
     override val actionDescription: @NlsContexts.DialogMessage String = "Reset..."
@@ -313,7 +321,7 @@ class SoftResetAction: ReplAction("Reset", true) {
     }
 }
 
-class CreateDeviceFolderAction : ReplAction("New Folder", true) {
+class CreateDeviceFolderAction : ReplAction("New Folder", true, false) {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     private fun selectedFolder(fileSystemWidget: FileSystemWidget): DirNode? =

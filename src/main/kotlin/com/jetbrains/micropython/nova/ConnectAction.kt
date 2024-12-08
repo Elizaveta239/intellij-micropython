@@ -14,7 +14,7 @@ import com.jetbrains.micropython.settings.microPythonFacet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class ConnectAction(text: String = "Connect") : ReplAction(text, false) {
+class ConnectAction(text: String = "Connect") : ReplAction(text, false, false) {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 

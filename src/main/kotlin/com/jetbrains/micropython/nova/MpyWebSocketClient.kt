@@ -34,7 +34,7 @@ open class MpyWebSocketClient(private val comm: MpyComm) : Client {
 
         override fun onMessage(message: String) {
             this@MpyWebSocketClient.message(message)
-            if(connectInProcess) {
+            if (connectInProcess) {
                 loginBuffer.append(message)
             } else {
                 comm.dataReceived(message)
