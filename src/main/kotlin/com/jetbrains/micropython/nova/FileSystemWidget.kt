@@ -178,6 +178,14 @@ class FileSystemWidget(val project: Project, newDisposable: Disposable) :
                 }
             }
         }
+        TreeUtil.sort(newModel, object : Comparator<FileSystemNode> {
+            override fun compare(node1: FileSystemNode, node2: FileSystemNode): Int {
+                if ((node1 is DirNode) == (node2 is DirNode)) {
+                    return node1.name.compareTo(node2.name)
+                }
+                return if (node1 is DirNode) -1 else 1
+            }
+        })
         withContext(Dispatchers.EDT) {
             val expandedPaths = TreeUtil.collectExpandedPaths(tree)
             val selectedPath = tree.selectionPath
