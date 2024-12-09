@@ -270,7 +270,7 @@ open class UploadFile() : DumbAwareAction("Upload Item(s) to MicroPython Device"
         val files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
         if (project != null && files != null) {
             var directoryCount = 0
-            var normalFileCount = 0
+            var fileCount = 0
 
             for (file in files.iterator()) {
                 if (file == null || !file.isInLocalFileSystem || ModuleUtil.findModuleForFile(
@@ -284,15 +284,15 @@ open class UploadFile() : DumbAwareAction("Upload Item(s) to MicroPython Device"
                 if (file.isDirectory) {
                     directoryCount++
                 } else {
-                    normalFileCount++
+                    fileCount++
                 }
             }
 
-            if (normalFileCount >= 1 && directoryCount >= 1) {
+            if (fileCount >= 1 && directoryCount >= 1) {
                 e.presentation.text = "Upload Items to MicroPython Device"
-            } else if (normalFileCount == 1) {
+            } else if (fileCount == 1) {
                 e.presentation.text = "Upload File to MicroPython Device"
-            } else if (normalFileCount > 1) {
+            } else if (fileCount > 1) {
                 e.presentation.text = "Upload Files to MicroPython Device"
             } else if (directoryCount == 1) {
                 e.presentation.text = "Upload Directory to MicroPython Device"
