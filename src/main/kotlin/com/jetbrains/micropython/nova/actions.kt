@@ -185,7 +185,7 @@ class InstantRun : DumbAwareAction() {
                 !file.isDirectory &&
                 files?.size == 1 &&
                 (file.fileType == PythonFileType.INSTANCE ||
-                        file.extension == ".mpy")
+                        file.extension == "mpy")
     }
 
     override fun actionPerformed(e: AnActionEvent) {
