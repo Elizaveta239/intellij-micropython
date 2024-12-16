@@ -79,7 +79,9 @@ suspend fun doConnect(fileSystemWidget: FileSystemWidget) {
             fileSystemWidget.setConnectionParams(connectionParameters)
             fileSystemWidget.connect()
             try {
-                fileSystemWidget.refresh()
+                if(fileSystemWidget.state == State.CONNECTED) {
+                    fileSystemWidget.refresh()
+                }
             } finally {
                 ActivityTracker.getInstance().inc()
             }
